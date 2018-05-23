@@ -18,6 +18,8 @@ class SensorData {
     int pin;
     String name;
     bool isAnalog;
+    double factor; // apply to get human-readable values, e.g., degrees F
+
     int lastVal;
     int minVal;
     int maxVal;
@@ -25,10 +27,11 @@ class SensorData {
     int sumCount; // for calculating average
 
   public:
-    SensorData(int pin, String name, bool isAnalog) {
+    SensorData(int pin, String name, bool isAnalog, double factor) {
         this->pin = pin;
         this->name = name;
         this->isAnalog = isAnalog;
+        this->factor = factor;
         resetVals();
         pinMode(pin, INPUT);
     }
@@ -55,19 +58,25 @@ class SensorData {
         sumCount = 0;
     }
 
+    int applyFactor(int val) {
+        return val * factor;
+    }
+
     String buildValueString() {
         String s = String("|");
         s.concat(Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL));
         s.concat("|");
-        s.concat(String(lastVal));
+        s.concat(String(applyFactor(lastVal)));
         s.concat("|");
-        s.concat(String(minVal));
+        s.concat(String(applyFactor(minVal)));
         s.concat("|");
-        s.concat(String(maxVal));
+        s.concat(String(applyFactor(maxVal)));
         s.concat("|");
-        s.concat(String((int)(sum / sumCount)));
+        s.concat(String((int)applyFactor(sum / sumCount)));
         s.concat("|");
         s.concat(String(sumCount));
+        s.concat("|");
+        s.concat(String(factor));
         return s;
     }
 };
@@ -75,15 +84,14 @@ class SensorData {
 class SensorTestBed {
   private:
     // Change this to sample at an appropriate rate.
-    const static int publishIntervalInSeconds = 60;
-    int sampleIntervalInSeconds = 1;
+    const static int publishIntervalInSeconds = 2 * 60;
+    int sampleIntervalInSeconds = 15;
     
     // Change these depending on how many sensors you want to report data from.
     // Names should be unique for reporting purposes.
-    const static int nSensors = 2;
+    const static int nSensors = 1;
     SensorData sensors[ nSensors ] = {
-         SensorData(A0, "Sound A0 sensor", true)
-        ,SensorData(D3, "Water Level D3 sensor", false)
+         SensorData(A0, "Thermistor 01 sensor:", true, 0.024)
     };
     
     void publish(String event, String data) {
