@@ -91,7 +91,8 @@ class SensorTestBed {
     // Names should be unique for reporting purposes.
     const static int nSensors = 1;
     SensorData sensors[ nSensors ] = {
-         SensorData(A0, "Thermistor 01 sensor:", true, 0.024)
+         SensorData(A0, "Thermistor 02 sensor:", true, 0.022)
+//         , SensorData(A0, "Thermistor 01 sensor:", true, 0.024)
     };
     
     void publish(String event, String data) {
