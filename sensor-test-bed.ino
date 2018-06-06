@@ -138,6 +138,7 @@ class SensorTestBed {
 };
 
 SensorTestBed sensorTestBed;
+const String githubHash = "to be manually inserted after git push";
 
 void setup() {
     Serial.begin(9600);
@@ -146,5 +147,6 @@ void setup() {
 }
 
 void loop() {
+    Particle.variable("GitHubHash", githubHash);
     sensorTestBed.sampleSensorData(TimeSync());
 }
