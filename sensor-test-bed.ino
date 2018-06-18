@@ -81,18 +81,20 @@ class SensorData {
     }
 };
 
+const String githubHash = ""to be manually inserted after git push"";
+int publishIntervalInSeconds = 2 * 60;
+int sampleIntervalInSeconds = 15;
+
 class SensorTestBed {
   private:
-    // Change this to sample at an appropriate rate.
-    const static int publishIntervalInSeconds = 2 * 60;
-    int sampleIntervalInSeconds = 15;
     
     // Change these depending on how many sensors you want to report data from.
     // Names should be unique for reporting purposes.
     const static int nSensors = 1;
     SensorData sensors[ nSensors ] = {
-         SensorData(A0, "Thermistor 02 sensor:", true, 0.022)
-//         , SensorData(A0, "Thermistor 01 sensor:", true, 0.024)
+         SensorData(A0, "Thermistor 03 sensor:", true, 0.024)
+//        ,  SensorData(A0, "Thermistor 01 sensor:", true, 0.024)
+//         , SensorData(A0, "Thermistor 02 sensor:", true, 0.022)
     };
     
     void publish(String event, String data) {
@@ -114,9 +116,6 @@ class SensorTestBed {
 
   public:
 	SensorTestBed() {
-	    if (sampleIntervalInSeconds > publishIntervalInSeconds) {
-	        sampleIntervalInSeconds = publishIntervalInSeconds;
-	    }
 	}
 
     void sampleSensorData(TimeSync timeSync) {
@@ -138,15 +137,36 @@ class SensorTestBed {
 };
 
 SensorTestBed sensorTestBed;
-const String githubHash = "to be manually inserted after git push";
+
+int setPublish(String command) {
+    int temp = command.toInt();
+    if (temp > 0) {
+        publishIntervalInSeconds = temp;
+        return 1;
+    }
+    return -1;
+}
+
+int setSample(String command) {
+    int temp = command.toInt();
+    if (temp > 0) {
+        sampleIntervalInSeconds = temp;
+        return 1;
+    }
+    return -1;
+}
 
 void setup() {
     Serial.begin(9600);
     sensorTestBed = SensorTestBed();
     Particle.syncTime();
+    Particle.variable("GitHubHash", githubHash);
+    Particle.variable("PublishSecs", publishIntervalInSeconds);
+    Particle.variable("SampleSecs", sampleIntervalInSeconds);
+    Particle.function("SetPublish", setPublish);
+    Particle.function("SetSample", setSample);
 }
 
 void loop() {
-    Particle.variable("GitHubHash", githubHash);
     sensorTestBed.sampleSensorData(TimeSync());
 }
