@@ -81,7 +81,7 @@ class SensorData {
     }
 };
 
-const String githubHash = ""to be manually inserted after git push"";
+const String githubHash = "to be manually inserted after git push";
 int publishIntervalInSeconds = 2 * 60;
 int sampleIntervalInSeconds = 15;
 
