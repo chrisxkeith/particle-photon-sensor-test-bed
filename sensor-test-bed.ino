@@ -1,3 +1,8 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <SparkFunMicroOLED.h>
+// https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
+#include <math.h>
+
 // https://opensource.org/licenses/MIT
 
 class TimeSync {
@@ -13,6 +18,30 @@ class TimeSync {
         }
 };
 
+MicroOLED oled;
+
+class OLEDWrapper {
+    public:
+        OLEDWrapper() {
+            oled.begin();    // Initialize the OLED
+            oled.clear(ALL); // Clear the display's internal memory
+            oled.display();  // Display what's in the buffer (splashscreen)
+            delay(1000);     // Delay 1000 ms
+            oled.clear(PAGE); // Clear the buffer.
+        }
+
+    void printTitle(String title, int font)
+    {
+      oled.clear(PAGE);
+      oled.setFontType(font);
+      oled.setCursor(0, 0);
+      oled.print(title);
+      oled.display();
+    }
+};
+
+OLEDWrapper oledWrapper;
+
 class SensorData {
   private:
     int pin;
@@ -25,18 +54,25 @@ class SensorData {
     int maxVal;
     double sum;
     int sumCount; // for calculating average
+    String unit; // for display
 
   public:
-    SensorData(int pin, String name, bool isAnalog, double factor) {
+    SensorData(int pin, String name, bool isAnalog, double factor, String unit) {
         this->pin = pin;
         this->name = name;
         this->isAnalog = isAnalog;
         this->factor = factor;
+        this->unit = unit;
         resetVals();
         pinMode(pin, INPUT);
     }
     
     String getName() { return name; }
+    String getLastVal() {
+        String s = String(applyFactor(lastVal));
+        s.concat(unit);
+        return s;
+    }
 
     void sample() {
         if (isAnalog) {
@@ -64,8 +100,6 @@ class SensorData {
 
     String buildValueString() {
         String s = String("|");
-        s.concat(Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL));
-        s.concat("|");
         s.concat(String(applyFactor(lastVal)));
         s.concat("|");
         s.concat(String(applyFactor(minVal)));
@@ -77,6 +111,13 @@ class SensorData {
         s.concat(String(sumCount));
         s.concat("|");
         s.concat(String(factor));
+        return s;
+    }
+
+    String buildPublishString() {
+        String s = String("|");
+        s.concat(Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL));
+        s.concat(buildValueString());
         return s;
     }
 };
@@ -92,9 +133,9 @@ class SensorTestBed {
     // Names should be unique for reporting purposes.
     const static int nSensors = 1;
     SensorData sensors[ nSensors ] = {
-         SensorData(A0, "Thermistor 03 sensor:", true, 0.024)
-//        ,  SensorData(A0, "Thermistor 01 sensor:", true, 0.024)
-//         , SensorData(A0, "Thermistor 02 sensor:", true, 0.022)
+         SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F")
+//        ,  SensorData(A0, "Thermistor 01 sensor:", true, 0.024, "F")
+//         , SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F")
     };
     
     void publish(String event, String data) {
@@ -109,7 +150,21 @@ class SensorTestBed {
 
     void publish() {
         for (int i = 0; i < nSensors; i++) {
-            publish(sensors[i].getName(), sensors[i].buildValueString());
+            publish(sensors[i].getName(), sensors[i].buildPublishString());
+        }
+    }
+
+    void display() {
+        oledWrapper.printTitle(String(Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL)), 1);
+        delay(5000);
+        for (int i = 0; i < nSensors; i++) {
+            oledWrapper.printTitle(sensors[i].getLastVal(), 1);
+            delay(5000);
+        }
+    }
+
+    void resetVals() {
+        for (int i = 0; i < nSensors; i++) {
             sensors[i].resetVals();
         }
     }
@@ -122,6 +177,8 @@ class SensorTestBed {
         // publish one right away to verify that things might be working.
         sample();
         publish();
+        display();
+        resetVals();
         while (true) {
             // Report on even intervals starting at midnight.
             int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
@@ -132,6 +189,8 @@ class SensorTestBed {
                 nextPublish -= sampleIntervalInSeconds;
             }
             publish();
+            display();
+            resetVals();
         }
     }
 };
