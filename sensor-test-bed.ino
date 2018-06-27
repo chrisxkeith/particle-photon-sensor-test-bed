@@ -5,6 +5,8 @@
 
 // https://opensource.org/licenses/MIT
 
+const String githubHash = "to be manually inserted after git push";
+
 class TimeSync {
     private:
         const unsigned long ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -122,7 +124,6 @@ class SensorData {
     }
 };
 
-const String githubHash = "to be manually inserted after git push";
 int publishIntervalInSeconds = 2 * 60;
 int sampleIntervalInSeconds = 15;
 
@@ -133,9 +134,9 @@ class SensorTestBed {
     // Names should be unique for reporting purposes.
     const static int nSensors = 1;
     SensorData sensors[ nSensors ] = {
-         SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F")
-//        ,  SensorData(A0, "Thermistor 01 sensor:", true, 0.024, "F")
-//         , SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F")
+         SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "")
+//         SensorData(A0, "Thermistor 01 sensor:", true, 0.024, "F")
+//         SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F")
     };
     
     void publish(String event, String data) {
@@ -155,11 +156,11 @@ class SensorTestBed {
     }
 
     void display() {
-        oledWrapper.printTitle(String(Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL)), 1);
-        delay(5000);
+        oledWrapper.printTitle(String(Time.format(Time.now(), "%I:%M:%S %p (GMT)")), 1);
+        delay(10000);
         for (int i = 0; i < nSensors; i++) {
-            oledWrapper.printTitle(sensors[i].getLastVal(), 1);
-            delay(5000);
+            oledWrapper.printTitle(sensors[i].getLastVal(), 3);
+            delay(10000);
         }
     }
 
