@@ -130,43 +130,65 @@ int sampleIntervalInSeconds = 15;
 class SensorTestBed {
   private:
     
-    // Change these depending on how many sensors you want to report data from.
-    // Names should be unique for reporting purposes.
-    const static int nSensors = 1;
-    SensorData sensors[ nSensors ] = {
-         SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "")
-//         SensorData(A0, "Thermistor 01 sensor:", true, 0.024, "F")
-//         SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F")
+    SensorData t1[ 2 ] = {
+         SensorData(A0, "Thermistor 01 sensor:", true, 0.024, "F"),
+         SensorData(A0, "", true, 1, "")
     };
+    SensorData t2[ 2 ] = {
+         SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F"),
+         SensorData(A0, "", true, 1, "")
+    };
+    SensorData t3[ 2 ] = {
+         SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F"),
+         SensorData(A0, "", true, 1, "")
+    };
+    SensorData unknownID[ 2 ] = {
+         SensorData(A0, "Unknown device id!", true, 1, ""),
+         SensorData(A0, "", true, 1, "")
+    };
+
+    SensorData* getSensors() {
+        String id = System.deviceID();
+        if (id.equals("1c002c001147343438323536")) {
+            return t1;
+        }
+        if (id.equals("300040001347343438323536")) {
+            return t2;
+        }
+        if (id.equals("290046001147343438323536")) {
+            return t3;
+        }
+        return unknownID;
+    }
     
     void publish(String event, String data) {
       Particle.publish(event, data, 1, PRIVATE);
     }
 
 	void sample() {
-        for (int i = 0; i < nSensors; i++) {
-            sensors[i].sample();
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            sensor->sample();
         }
     }
 
     void publish() {
-        for (int i = 0; i < nSensors; i++) {
-            publish(sensors[i].getName(), sensors[i].buildPublishString());
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            publish(sensor->getName(), sensor->buildPublishString());
         }
     }
 
     void display() {
         oledWrapper.printTitle(String(Time.format(Time.now(), "%I:%M:%S %p (GMT)")), 1);
         delay(10000);
-        for (int i = 0; i < nSensors; i++) {
-            oledWrapper.printTitle(sensors[i].getLastVal(), 3);
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            oledWrapper.printTitle(sensor->getLastVal(), 3);
             delay(10000);
         }
     }
 
     void resetVals() {
-        for (int i = 0; i < nSensors; i++) {
-            sensors[i].resetVals();
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            sensor->resetVals();
         }
     }
 
