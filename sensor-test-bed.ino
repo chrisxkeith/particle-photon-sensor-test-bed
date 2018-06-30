@@ -138,8 +138,12 @@ class SensorTestBed {
          SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F"),
          SensorData(A0, "", true, 1, "")
     };
-    SensorData t3[ 2 ] = {
+    SensorData t3[ 4 ] = {
          SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F"),
+         SensorData(A1, "Thermistor 03b sensor:", true, 0.024, "F"),
+         // A2 belongs to OLED.
+         // A3 not work for as yet unknown reasons.
+         SensorData(A4, "Thermistor 03c sensor:", true, 0.024, "F"),
          SensorData(A0, "", true, 1, "")
     };
     SensorData unknownID[ 2 ] = {
@@ -179,10 +183,12 @@ class SensorTestBed {
 
     void display() {
         oledWrapper.printTitle(String(Time.format(Time.now(), "%I:%M:%S %p (GMT)")), 1);
-        delay(10000);
+        delay(5000);
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            oledWrapper.printTitle(String("0000000000"), 3);
+            delay(5000);
             oledWrapper.printTitle(sensor->getLastVal(), 3);
-            delay(10000);
+            delay(5000);
         }
     }
 
