@@ -184,9 +184,14 @@ class SensorTestBed {
     void display() {
         oledWrapper.printTitle(String(Time.format(Time.now(), "%I:%M:%S %p (GMT)")), 1);
         delay(5000);
+        bool first = true;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            oledWrapper.printTitle(String("0000000000"), 3);
-            delay(5000);
+	        if (first) {
+	            first = false;
+	        } else {
+                oledWrapper.printTitle(String("0000000000"), 3);
+                delay(5000);
+	        }
             oledWrapper.printTitle(sensor->getLastVal(), 3);
             delay(5000);
         }
