@@ -142,8 +142,9 @@ class SensorTestBed {
          SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F"),
          SensorData(A1, "Thermistor 03b sensor:", true, 0.024, "F"),
          // A2 belongs to OLED.
-         // A3 not work for as yet unknown reasons.
+         // A3 belongs to SPI/I2C.
          SensorData(A4, "Thermistor 03c sensor:", true, 0.024, "F"),
+         // A5 belongs to SPI/I2C.
          SensorData(A0, "", true, 1, "")
     };
     SensorData unknownID[ 2 ] = {
