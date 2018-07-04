@@ -44,6 +44,10 @@ class OLEDWrapper {
 
 OLEDWrapper oledWrapper;
 
+String sensor0Data = String("no sensor0");
+String sensor1Data = String("no sensor1");
+String sensor2Data = String("no sensor2");
+
 class SensorData {
   private:
     int pin;
@@ -177,8 +181,14 @@ class SensorTestBed {
     }
 
     void publish() {
+        int i = 0;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
             publish(sensor->getName(), sensor->buildPublishString());
+            switch (i++) {
+               case  0 : sensor0Data = sensor->buildPublishString(); break;
+               case  1 : sensor1Data = sensor->buildPublishString(); break;
+               case  2 : sensor2Data = sensor->buildPublishString(); break;
+            }
         }
     }
 
@@ -257,6 +267,9 @@ void setup() {
     Particle.variable("GitHubHash", githubHash);
     Particle.variable("PublishSecs", publishIntervalInSeconds);
     Particle.variable("SampleSecs", sampleIntervalInSeconds);
+    Particle.variable("sensor0Data", sensor0Data);
+    Particle.variable("sensor1Data", sensor1Data);
+    Particle.variable("sensor2Data", sensor2Data);
     Particle.function("SetPublish", setPublish);
     Particle.function("SetSample", setSample);
 }
