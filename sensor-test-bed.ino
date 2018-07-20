@@ -1,3 +1,4 @@
+// Please credit chris.keith@gmail.com
 // This #include statement was automatically added by the Particle IDE.
 #include <SparkFunMicroOLED.h>
 // https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
