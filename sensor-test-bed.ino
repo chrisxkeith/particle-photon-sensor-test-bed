@@ -81,16 +81,20 @@ class SensorData {
         return s;
     }
 
-    void sample() {
+    bool sample() {
+        int nextVal;
         if (isAnalog) {
-            lastVal = analogRead(pin);
+            nextVal = analogRead(pin);
         } else {
-            lastVal = digitalRead(pin);
+            nextVal = digitalRead(pin);
         }
+        bool changed = ((lastVal != INT_MIN) && (applyFactor(lastVal) != applyFactor(nextVal)));
+        lastVal = nextVal;
         minVal = min(lastVal, minVal);
         maxVal = max(lastVal, minVal);
         sum += lastVal;
         sumCount++;
+        return changed;
     }
     
     void resetVals() {
@@ -130,7 +134,7 @@ class SensorData {
 };
 
 int publishIntervalInSeconds = 2 * 60;
-int sampleIntervalInSeconds = 15;
+int sampleIntervalInSeconds = 1;
 
 class SensorTestBed {
   private:
@@ -143,12 +147,10 @@ class SensorTestBed {
          SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F"),
          SensorData(A0, "", true, 1, "")
     };
-    SensorData t3[ 4 ] = {
+    SensorData t3[ 2 ] = {
          SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F"),
-         SensorData(A1, "Thermistor 03b sensor:", true, 0.024, "F"),
          // A2 belongs to OLED.
          // A3 belongs to SPI/I2C.
-         SensorData(A4, "Thermistor 03c sensor:", true, 0.024, "F"),
          // A5 belongs to SPI/I2C.
          SensorData(A0, "", true, 1, "")
     };
@@ -175,10 +177,14 @@ class SensorTestBed {
       Particle.publish(event, data, 1, PRIVATE);
     }
 
-	void sample() {
+	bool sample() {
+	    bool changed = false;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            sensor->sample();
+            if (sensor->sample()) {
+                changed = true;
+            }
         }
+        return changed;
     }
 
     void publish() {
@@ -193,9 +199,12 @@ class SensorTestBed {
         }
     }
 
-    void display() {
-        oledWrapper.printTitle(String(Time.format(Time.now(), "%I:%M:%S %p (GMT)")), 1);
+    void displayTime() {
+        oledWrapper.printTitle(String(Time.format("%H:%M:%S UTC")), 1);
         delay(5000);
+    }
+
+    void displayValues() {
         bool first = true;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
 	        if (first) {
@@ -223,19 +232,24 @@ class SensorTestBed {
         // publish one right away to verify that things might be working.
         sample();
         publish();
-        display();
+        displayTime();
+        displayValues();
         resetVals();
         while (true) {
             // Report on even intervals starting at midnight.
             int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
             while (nextPublish > 0) {
                 timeSync.sync();
-                sample();
+                // If any sensor data changed, display it immediately.
+                if (sample()) {
+                    displayValues();
+                }
                 delay(min(sampleIntervalInSeconds, nextPublish) * 1000);
                 nextPublish -= sampleIntervalInSeconds;
             }
             publish();
-            display();
+            displayTime();
+            displayValues();
             resetVals();
         }
     }
