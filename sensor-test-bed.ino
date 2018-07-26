@@ -140,7 +140,7 @@ class SensorTestBed {
   private:
     
     SensorData t1[ 2 ] = {
-         SensorData(A0, "Thermistor 01 sensor:", true, 0.024, "F"),
+         SensorData(A0, "Thermistor 01 sensor:", true, 0.036, "F"),
          SensorData(A0, "", true, 1, "")
     };
     SensorData t2[ 2 ] = {
