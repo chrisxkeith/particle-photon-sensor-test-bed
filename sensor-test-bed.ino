@@ -48,6 +48,9 @@ OLEDWrapper oledWrapper;
 String sensor0Data = String("no sensor0");
 String sensor1Data = String("no sensor1");
 String sensor2Data = String("no sensor2");
+String sensor3Data = String("no sensor2");
+String sensor4Data = String("no sensor2");
+String sensor5Data = String("no sensor2");
 
 class SensorData {
   private:
@@ -195,6 +198,9 @@ class SensorTestBed {
                case  0 : sensor0Data = sensor->buildPublishString(); break;
                case  1 : sensor1Data = sensor->buildPublishString(); break;
                case  2 : sensor2Data = sensor->buildPublishString(); break;
+               case  3 : sensor3Data = sensor->buildPublishString(); break;
+               case  4 : sensor4Data = sensor->buildPublishString(); break;
+               case  5 : sensor5Data = sensor->buildPublishString(); break;
             }
         }
     }
@@ -285,6 +291,9 @@ void setup() {
     Particle.variable("sensor0Data", sensor0Data);
     Particle.variable("sensor1Data", sensor1Data);
     Particle.variable("sensor2Data", sensor2Data);
+    Particle.variable("sensor3Data", sensor3Data);
+    Particle.variable("sensor4Data", sensor4Data);
+    Particle.variable("sensor5Data", sensor5Data);
     Particle.function("SetPublish", setPublish);
     Particle.function("SetSample", setSample);
 }
