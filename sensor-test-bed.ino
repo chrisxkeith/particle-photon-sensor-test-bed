@@ -48,9 +48,9 @@ OLEDWrapper oledWrapper;
 String sensor0Data = String("no sensor0");
 String sensor1Data = String("no sensor1");
 String sensor2Data = String("no sensor2");
-String sensor3Data = String("no sensor2");
-String sensor4Data = String("no sensor2");
-String sensor5Data = String("no sensor2");
+String sensor3Data = String("no sensor3");
+String sensor4Data = String("no sensor4");
+String sensor5Data = String("no sensor5");
 
 class SensorData {
   private:
@@ -234,13 +234,16 @@ class SensorTestBed {
 	SensorTestBed() {
 	}
 
-    void sampleSensorData(TimeSync timeSync) {
+    void firstSample() {
         // publish one right away to verify that things might be working.
         sample();
         publish();
         displayTime();
         displayValues();
         resetVals();
+    }
+
+    void sampleSensorData(TimeSync timeSync) {
         while (true) {
             // Report on even intervals starting at midnight.
             int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
@@ -296,6 +299,7 @@ void setup() {
     Particle.variable("sensor5Data", sensor5Data);
     Particle.function("SetPublish", setPublish);
     Particle.function("SetSample", setSample);
+    sensorTestBed.firstSample();
 }
 
 void loop() {
