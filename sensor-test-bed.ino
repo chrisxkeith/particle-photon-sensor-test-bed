@@ -6,7 +6,7 @@
 
 // https://opensource.org/licenses/MIT
 
-const String githubHash = "to be manually inserted after git push";
+const String githubHash = "to be replaced manually in build.particle.io after 'git push'";
 
 class TimeSync {
     private:
@@ -142,8 +142,9 @@ int sampleIntervalInSeconds = 1;
 class SensorTestBed {
   private:
     
-    SensorData t1[ 2 ] = {
+    SensorData t1[ 3 ] = {
          SensorData(A0, "Thermistor 01 sensor:", true, 0.036, "F"),
+         SensorData(A1, "Thermistor 01b sensor:", true, 0.036, "F"),
          SensorData(A0, "", true, 1, "")
     };
     SensorData t2[ 2 ] = {
