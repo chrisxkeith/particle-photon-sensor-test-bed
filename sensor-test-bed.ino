@@ -148,11 +148,11 @@ class SensorTestBed {
          SensorData(A0, "", true, 1, "")
     };
     SensorData t2[ 2 ] = {
-         SensorData(A0, "Thermistor 02 sensor:", true, 0.022, "F"),
+         SensorData(A0, "Thermistor 02 sensor:", true, 0.036, "F"),
          SensorData(A0, "", true, 1, "")
     };
     SensorData t3[ 2 ] = {
-         SensorData(A0, "Thermistor 03 sensor:", true, 0.024, "F"),
+         SensorData(A0, "Thermistor 03 sensor:", true, 0.036, "F"),
          // A2 belongs to OLED.
          // A3 belongs to SPI/I2C.
          // A5 belongs to SPI/I2C.
