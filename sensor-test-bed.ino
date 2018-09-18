@@ -45,13 +45,6 @@ class OLEDWrapper {
 
 OLEDWrapper oledWrapper;
 
-String sensor0Data = String("no sensor0");
-String sensor1Data = String("no sensor1");
-String sensor2Data = String("no sensor2");
-String sensor3Data = String("no sensor3");
-String sensor4Data = String("no sensor4");
-String sensor5Data = String("no sensor5");
-
 class SensorData {
   private:
     int pin;
@@ -60,10 +53,6 @@ class SensorData {
     double factor; // apply to get human-readable values, e.g., degrees F
 
     int lastVal;
-    int minVal;
-    int maxVal;
-    double sum;
-    int sumCount; // for calculating average
     String unit; // for display
 
   public:
@@ -93,19 +82,11 @@ class SensorData {
         }
         bool changed = ((lastVal != INT_MIN) && (applyFactor(lastVal) != applyFactor(nextVal)));
         lastVal = nextVal;
-        minVal = min(lastVal, minVal);
-        maxVal = max(lastVal, minVal);
-        sum += lastVal;
-        sumCount++;
         return changed;
     }
     
     void resetVals() {
         lastVal = INT_MIN;
-        minVal = INT_MAX;
-        maxVal = INT_MIN;
-        sum = 0.0;
-        sumCount = 0;
     }
 
     int applyFactor(int val) {
@@ -113,31 +94,13 @@ class SensorData {
     }
 
     String buildValueString() {
-        String s = String("|");
-        s.concat(String(applyFactor(lastVal)));
-        s.concat("|");
-        s.concat(String(applyFactor(minVal)));
-        s.concat("|");
-        s.concat(String(applyFactor(maxVal)));
-        s.concat("|");
-        s.concat(String((int)applyFactor(sum / sumCount)));
-        s.concat("|");
-        s.concat(String(sumCount));
-        s.concat("|");
-        s.concat(String(factor));
-        return s;
-    }
-
-    String buildPublishString() {
-        String s = String("|");
-        s.concat(Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL));
-        s.concat(buildValueString());
-        return s;
+        return String(applyFactor(lastVal));
     }
 };
 
 int publishIntervalInSeconds = 2 * 60;
-int sampleIntervalInSeconds = 1;
+int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
+String internalTime = "";
 
 class SensorTestBed {
   private:
@@ -181,28 +144,10 @@ class SensorTestBed {
       Particle.publish(event, data, 1, PRIVATE);
     }
 
-	bool sample() {
-	    bool changed = false;
-	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            if (sensor->sample()) {
-                changed = true;
-            }
-        }
-        return changed;
-    }
-
     void publish() {
         int i = 0;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            publish(sensor->getName(), sensor->buildPublishString());
-            switch (i++) {
-               case  0 : sensor0Data = sensor->buildPublishString(); break;
-               case  1 : sensor1Data = sensor->buildPublishString(); break;
-               case  2 : sensor2Data = sensor->buildPublishString(); break;
-               case  3 : sensor3Data = sensor->buildPublishString(); break;
-               case  4 : sensor4Data = sensor->buildPublishString(); break;
-               case  5 : sensor5Data = sensor->buildPublishString(); break;
-            }
+            publish(sensor->getName(), sensor->buildValueString());
         }
     }
 
@@ -235,32 +180,34 @@ class SensorTestBed {
 	SensorTestBed() {
 	}
 
-    void firstSample() {
-        // publish one right away to verify that things might be working.
-        sample();
-        publish();
+	bool sample() {
+	    bool changed = false;
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            if (sensor->sample()) {
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    void display() {
         displayTime();
         displayValues();
+        publish();
         resetVals();
     }
 
-    void sampleSensorData(TimeSync timeSync) {
-        while (true) {
-            // Report on even intervals starting at midnight.
-            int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
-            while (nextPublish > 0) {
-                timeSync.sync();
-                // If any sensor data changed, display it immediately.
-                if (sample()) {
-                    displayValues();
-                }
-                delay(min(sampleIntervalInSeconds, nextPublish) * 1000);
-                nextPublish -= sampleIntervalInSeconds;
-            }
-            publish();
-            displayTime();
-            displayValues();
-            resetVals();
+    void setNextPublish() {
+        nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
+    }
+
+    void sampleSensorData() {
+        // If any sensor data changed, display it immediately.
+        if (sample()) {
+            display();
+        } else if (nextPublish >= Time.now()) {
+            display();
+            setNextPublish();
         }
     }
 };
@@ -271,38 +218,37 @@ int setPublish(String command) {
     int temp = command.toInt();
     if (temp > 0) {
         publishIntervalInSeconds = temp;
+        sensorTestBed.setNextPublish();
+        sensorTestBed.sample();
         return 1;
     }
     return -1;
 }
 
-int setSample(String command) {
-    int temp = command.toInt();
-    if (temp > 0) {
-        sampleIntervalInSeconds = temp;
-        return 1;
-    }
-    return -1;
+// build.particle.io will think that this has timed out
+// (and give the "Bummer..." error), but it does finish.
+int displayVals(String command) {
+    sensorTestBed.display();
+    return 1;
 }
 
 void setup() {
     Serial.begin(9600);
-    sensorTestBed = SensorTestBed();
     Particle.syncTime();
     Particle.variable("GitHubHash", githubHash);
     Particle.variable("PublishSecs", publishIntervalInSeconds);
-    Particle.variable("SampleSecs", sampleIntervalInSeconds);
-    Particle.variable("sensor0Data", sensor0Data);
-    Particle.variable("sensor1Data", sensor1Data);
-    Particle.variable("sensor2Data", sensor2Data);
-    Particle.variable("sensor3Data", sensor3Data);
-    Particle.variable("sensor4Data", sensor4Data);
-    Particle.variable("sensor5Data", sensor5Data);
+    Particle.variable("InternalTime", internalTime);
     Particle.function("SetPublish", setPublish);
-    Particle.function("SetSample", setSample);
-    sensorTestBed.firstSample();
+    Particle.function("DisplayVals", displayVals);
+
+    sensorTestBed = SensorTestBed();
+    sensorTestBed.sample();
+    sensorTestBed.display();
 }
 
+TimeSync timeSync = TimeSync();
 void loop() {
-    sensorTestBed.sampleSensorData(TimeSync());
+    timeSync.sync();
+    internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL);
+    sensorTestBed.sampleSensorData();
 }
