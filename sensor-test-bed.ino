@@ -1,4 +1,6 @@
 // Please credit chris.keith@gmail.com
+const String githubHash = "to be replaced manually in build.particle.io after 'git push'";
+
 // This #include statement was automatically added by the Particle IDE.
 #include <SparkFunMicroOLED.h>
 // https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
@@ -6,20 +8,24 @@
 
 // https://opensource.org/licenses/MIT
 
-const String githubHash = "to be replaced manually in build.particle.io after 'git push'";
-
+String internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL);
 class TimeSync {
     private:
         const unsigned long ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
         unsigned long lastSync = millis();
     public:
+        TimeSync() {
+            sync();
+        }
         void sync() {
+            internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL);
             if (millis() - lastSync > ONE_DAY_IN_MILLISECONDS) {
                 Particle.syncTime();
                 lastSync = millis();
             }
         }
 };
+TimeSync timeSync = TimeSync();
 
 MicroOLED oled;
 
@@ -99,14 +105,12 @@ class SensorData {
 };
 
 int publishIntervalInSeconds = 2 * 60;
-int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
-String internalTime = "";
 
 class SensorTestBed {
   private:
-    
-    SensorData t1[ 3 ] = {
-         SensorData(A0, "Thermistor 01 sensor:", true, 0.036, "F"),
+    int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
+
+    SensorData t1[ 2 ] = {
          SensorData(A1, "Thermistor 01b sensor:", true, 0.036, "F"),
          SensorData(A0, "", true, 1, "")
     };
@@ -210,19 +214,23 @@ class SensorTestBed {
             setNextPublish();
         }
     }
+
+    int setPublish(String command) {
+        int temp = command.toInt();
+        if (temp > 0) {
+            publishIntervalInSeconds = temp;
+            setNextPublish();
+            sample();
+            return 1;
+        }
+        return -1;
+    }
 };
 
-SensorTestBed sensorTestBed;
+SensorTestBed sensorTestBed = SensorTestBed();
 
 int setPublish(String command) {
-    int temp = command.toInt();
-    if (temp > 0) {
-        publishIntervalInSeconds = temp;
-        sensorTestBed.setNextPublish();
-        sensorTestBed.sample();
-        return 1;
-    }
-    return -1;
+    return sensorTestBed.setPublish(command);
 }
 
 // build.particle.io will think that this has timed out
@@ -234,21 +242,18 @@ int displayVals(String command) {
 
 void setup() {
     Serial.begin(9600);
-    Particle.syncTime();
     Particle.variable("GitHubHash", githubHash);
+
+    Particle.variable("internalTime", internalTime);
+
     Particle.variable("PublishSecs", publishIntervalInSeconds);
-    Particle.variable("InternalTime", internalTime);
     Particle.function("SetPublish", setPublish);
     Particle.function("DisplayVals", displayVals);
-
-    sensorTestBed = SensorTestBed();
     sensorTestBed.sample();
     sensorTestBed.display();
 }
 
-TimeSync timeSync = TimeSync();
 void loop() {
     timeSync.sync();
-    internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL);
     sensorTestBed.sampleSensorData();
 }
