@@ -167,10 +167,10 @@ class SensorTestBed {
 	            first = false;
 	        } else {
                 oledWrapper.printTitle(String("0000000000"), 3);
-                delay(5000);
+//                delay(5000);
 	        }
             oledWrapper.printTitle(sensor->getLastVal(), 3);
-            delay(5000);
+            delay(2000);
         }
     }
 
@@ -195,7 +195,7 @@ class SensorTestBed {
     }
 
     void display() {
-        displayTime();
+//        displayTime();
         displayValues();
         publish();
         resetVals();
