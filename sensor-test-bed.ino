@@ -55,17 +55,15 @@ class SensorData {
   private:
     int pin;
     String name;
-    bool isAnalog;
     double factor; // apply to get human-readable values, e.g., degrees F
 
     int lastVal;
     String unit; // for display
 
   public:
-    SensorData(int pin, String name, bool isAnalog, double factor, String unit) {
+    SensorData(int pin, String name, double factor, String unit) {
         this->pin = pin;
         this->name = name;
-        this->isAnalog = isAnalog;
         this->factor = factor;
         this->unit = unit;
         resetVals();
@@ -81,7 +79,7 @@ class SensorData {
 
     bool sample() {
         int nextVal;
-        if (isAnalog) {
+        if (pin >= A0 && pin <= A5) {
             nextVal = analogRead(pin);
         } else {
             nextVal = digitalRead(pin);
@@ -111,23 +109,23 @@ class SensorTestBed {
     int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
     SensorData t1[ 2 ] = {
-         SensorData(A1, "Thermistor 01b sensor:", true, 0.036, "F"),
-         SensorData(A0, "", true, 1, "")
+         SensorData(A1, "Thermistor 01b sensor:", 0.036, "F"),
+         SensorData(A0, "", 1, "")
     };
     SensorData t2[ 2 ] = {
-         SensorData(A0, "Thermistor 02 sensor:", true, 0.036, "F"),
-         SensorData(A0, "", true, 1, "")
+         SensorData(A0, "Thermistor 02 sensor:", 0.036, "F"),
+         SensorData(A0, "", 1, "")
     };
     SensorData t3[ 2 ] = {
-         SensorData(A0, "Thermistor 03 sensor:", true, 0.036, "F"),
+         SensorData(A0, "Thermistor 03 sensor:", 0.036, "F"),
          // A2 belongs to OLED.
          // A3 belongs to SPI/I2C.
          // A5 belongs to SPI/I2C.
-         SensorData(A0, "", true, 1, "")
+         SensorData(A0, "", 1, "")
     };
     SensorData unknownID[ 2 ] = {
-         SensorData(A0, "Unknown device id!", true, 1, ""),
-         SensorData(A0, "", true, 1, "")
+         SensorData(A0, "Unknown device id!", 1, ""),
+         SensorData(A0, "", 1, "")
     };
 
     SensorData* getSensors() {
