@@ -1,14 +1,9 @@
 // Please credit chris.keith@gmail.com
 const String githubHash = "to be replaced manually in build.particle.io after 'git push'";
 
-// This #include statement was automatically added by the Particle IDE.
-#include <SparkFunMicroOLED.h>
-// https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
-#include <math.h>
-
 // https://opensource.org/licenses/MIT
 
-String internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL);
+String internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL) + " " + String(Time.now());
 class TimeSync {
     private:
         const unsigned long ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -18,7 +13,7 @@ class TimeSync {
             sync();
         }
         void sync() {
-            internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL);
+            internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL) + " " + String(Time.now());
             if (millis() - lastSync > ONE_DAY_IN_MILLISECONDS) {
                 Particle.syncTime();
                 lastSync = millis();
@@ -26,6 +21,10 @@ class TimeSync {
         }
 };
 TimeSync timeSync = TimeSync();
+
+#include <SparkFunMicroOLED.h>
+// https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
+#include <math.h>
 
 MicroOLED oled;
 
@@ -65,8 +64,8 @@ class SensorData {
         this->pin = pin;
         this->name = name;
         this->factor = factor;
+        this->lastVal = INT_MIN;
         this->unit = unit;
-        resetVals();
         pinMode(pin, INPUT);
     }
     
@@ -84,15 +83,11 @@ class SensorData {
         } else {
             nextVal = digitalRead(pin);
         }
-        bool changed = ((lastVal != INT_MIN) && (applyFactor(lastVal) != applyFactor(nextVal)));
+        bool changed = ((applyFactor(lastVal) != applyFactor(nextVal)));
         lastVal = nextVal;
         return changed;
     }
     
-    void resetVals() {
-        lastVal = INT_MIN;
-    }
-
     int applyFactor(int val) {
         return val * factor;
     }
@@ -102,11 +97,11 @@ class SensorData {
     }
 };
 
-int publishIntervalInSeconds = 2 * 60;
+int publishIntervalInSeconds = 10;
+int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
 class SensorTestBed {
   private:
-    int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
     SensorData t1[ 2 ] = {
          SensorData(A1, "Thermistor 01b sensor:", 0.036, "F"),
@@ -146,42 +141,6 @@ class SensorTestBed {
       Particle.publish(event, data, 1, PRIVATE);
     }
 
-    void publish() {
-        int i = 0;
-	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            publish(sensor->getName(), sensor->buildValueString());
-        }
-    }
-
-    void displayTime() {
-        oledWrapper.printTitle(String(Time.format("%H:%M:%S UTC")), 1);
-        delay(5000);
-    }
-
-    void displayValues() {
-        bool first = true;
-	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-	        if (first) {
-	            first = false;
-	        } else {
-                oledWrapper.printTitle(String("0000000000"), 3);
-//                delay(5000);
-	        }
-            oledWrapper.printTitle(sensor->getLastVal(), 3);
-            delay(2000);
-        }
-    }
-
-    void resetVals() {
-	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            sensor->resetVals();
-        }
-    }
-
-  public:
-	SensorTestBed() {
-	}
-
 	bool sample() {
 	    bool changed = false;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
@@ -192,23 +151,50 @@ class SensorTestBed {
         return changed;
     }
 
-    void display() {
-//        displayTime();
-        displayValues();
-        publish();
-        resetVals();
+    void displayValues() {
+        bool first = true;
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+	        if (first) {
+	            first = false;
+	        } else {
+                oledWrapper.printTitle(String("0000000000"), 3);
+                delay(2000);
+	        }
+            oledWrapper.printTitle(sensor->getLastVal(), 3);
+            delay(2000);
+        }
     }
 
+    // Publish at intervals relative to midnight (Unix epoch).
+    // This makes it easier to compare sensor data from multiple Photons/devices.
     void setNextPublish() {
-        nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
+        int now = Time.now();
+        nextPublish = now + (publishIntervalInSeconds - (now % publishIntervalInSeconds));
     }
 
+  public:
+	SensorTestBed() {
+	    setNextPublish();
+	}
+
+    // Publish when changed, but not more often than minimum requested rate
+    // (and never faster than 1/second, which is a Particle cloud restriction.)
+    void publish() {
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            publish(sensor->getName(), sensor->buildValueString());
+        }
+    }
+
+    // For many sensors, sampling more than necessary shouldn't be a problem.
+    // For sensors like a moisture sensor, however, sampling should only happen when necessary.
+    // See https://learn.sparkfun.com/tutorials/soil-moisture-sensor-hookup-guide .
     void sampleSensorData() {
         // If any sensor data changed, display it immediately.
         if (sample()) {
-            display();
-        } else if (nextPublish >= Time.now()) {
-            display();
+            displayValues();
+        }
+        if (nextPublish <= Time.now()) {
+            publish();
             setNextPublish();
         }
     }
@@ -218,7 +204,6 @@ class SensorTestBed {
         if (temp > 0) {
             publishIntervalInSeconds = temp;
             setNextPublish();
-            sample();
             return 1;
         }
         return -1;
@@ -231,10 +216,10 @@ int setPublish(String command) {
     return sensorTestBed.setPublish(command);
 }
 
-// build.particle.io will think that this has timed out
+// build.particle.io may think that this has timed out if there are more than a couple of sensors
 // (and give the "Bummer..." error), but it does finish.
-int displayVals(String command) {
-    sensorTestBed.display();
+int publishVals(String command) {
+    sensorTestBed.publish();
     return 1;
 }
 
@@ -245,10 +230,11 @@ void setup() {
     Particle.variable("internalTime", internalTime);
 
     Particle.variable("PublishSecs", publishIntervalInSeconds);
+    Particle.variable("NextPublish", nextPublish);
     Particle.function("SetPublish", setPublish);
-    Particle.function("DisplayVals", displayVals);
-    sensorTestBed.sample();
-    sensorTestBed.display();
+    Particle.function("PublishVals", publishVals);
+    sensorTestBed.sampleSensorData();
+    sensorTestBed.publish();
 }
 
 void loop() {
