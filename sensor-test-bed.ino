@@ -97,7 +97,7 @@ class SensorData {
     }
 };
 
-int publishIntervalInSeconds = 10;
+int publishIntervalInSeconds = 1;
 int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
 class SensorTestBed {
