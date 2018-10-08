@@ -68,7 +68,7 @@ class SensorData {
         this->lastVal = INT_MIN;
         this->accumulatedVals = 0.0;
         this->nAccumulatedVals = 0;
-        this->lastSampleTime = Time.now();
+        this->lastSampleTime = 0;
         pinMode(pin, INPUT);
     }
     
@@ -83,8 +83,11 @@ class SensorData {
         }
         int now = Time.now();
 
+        if (lastSampleTime == 0) {
+            accumulatedVals += nextSampledVal;
+            nAccumulatedVals++;
+        } else if (now < lastSampleTime + 1) {
         // Take average of all samples over 1 second interval.
-        if (now < lastSampleTime + 1) {
             accumulatedVals += nextSampledVal;
             nAccumulatedVals++;
             return false;
