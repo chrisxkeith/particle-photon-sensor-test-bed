@@ -55,25 +55,20 @@ class SensorData {
     int pin;
     String name;
     double factor; // apply to get human-readable values, e.g., degrees F
-
     int lastVal;
-    String unit; // for display
 
   public:
-    SensorData(int pin, String name, double factor, String unit) {
+    SensorData(int pin, String name, double factor) {
         this->pin = pin;
         this->name = name;
         this->factor = factor;
         this->lastVal = INT_MIN;
-        this->unit = unit;
         pinMode(pin, INPUT);
     }
     
     String getName() { return name; }
     String getLastVal() {
-        String s = String(applyFactor(lastVal));
-        s.concat(unit);
-        return s;
+        return String(applyFactor(lastVal));
     }
 
     bool sample() {
@@ -104,23 +99,23 @@ class SensorTestBed {
   private:
 
     SensorData t1[ 2 ] = {
-         SensorData(A1, "Thermistor 01b sensor:", 0.036, "F"),
-         SensorData(A0, "", 1, "")
+         SensorData(A1, "Thermistor 01b sensor:", 0.036),
+         SensorData(A0, "", 1)
     };
     SensorData t2[ 2 ] = {
-         SensorData(A0, "Thermistor 02 sensor:", 0.036, "F"),
-         SensorData(A0, "", 1, "")
+         SensorData(A0, "Thermistor 02 sensor:", 0.036),
+         SensorData(A0, "", 1)
     };
     SensorData t3[ 2 ] = {
-         SensorData(A0, "Thermistor 03 sensor:", 0.036, "F"),
+         SensorData(A0, "Thermistor 03 sensor:", 0.036),
          // A2 belongs to OLED.
          // A3 belongs to SPI/I2C.
          // A5 belongs to SPI/I2C.
-         SensorData(A0, "", 1, "")
+         SensorData(A0, "", 1)
     };
     SensorData unknownID[ 2 ] = {
-         SensorData(A0, "Unknown device id!", 1, ""),
-         SensorData(A0, "", 1, "")
+         SensorData(A0, "Unknown device id!", 1),
+         SensorData(A0, "", 1)
     };
 
     SensorData* getSensors() {
