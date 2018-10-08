@@ -52,10 +52,13 @@ OLEDWrapper oledWrapper;
 
 class SensorData {
   private:
-    int pin;
-    String name;
-    double factor; // apply to get human-readable values, e.g., degrees F
-    int lastVal;
+    int     pin;
+    String  name;
+    double  factor; // apply to get human-readable values, e.g., degrees F
+    int     lastVal;
+    double  accumulatedVals;
+    int     nAccumulatedVals;
+    int     lastSampleTime;
 
   public:
     SensorData(int pin, String name, double factor) {
@@ -63,23 +66,35 @@ class SensorData {
         this->name = name;
         this->factor = factor;
         this->lastVal = INT_MIN;
+        this->accumulatedVals = 0.0;
+        this->nAccumulatedVals = 0;
+        this->lastSampleTime = Time.now();
         pinMode(pin, INPUT);
     }
     
     String getName() { return name; }
-    String getLastVal() {
-        return String(applyFactor(lastVal));
-    }
 
     bool sample() {
-        int nextVal;
+        int nextSampledVal;
         if (pin >= A0 && pin <= A5) {
-            nextVal = analogRead(pin);
+            nextSampledVal = analogRead(pin);
         } else {
-            nextVal = digitalRead(pin);
+            nextSampledVal = digitalRead(pin);
         }
+        int now = Time.now();
+
+        // Take average of all samples over 1 second interval.
+        if (now < lastSampleTime + 1) {
+            accumulatedVals += nextSampledVal;
+            nAccumulatedVals++;
+            return false;
+        }
+        int nextVal = accumulatedVals / nAccumulatedVals;
         bool changed = ((applyFactor(lastVal) != applyFactor(nextVal)));
         lastVal = nextVal;
+        accumulatedVals = lastVal;
+        nAccumulatedVals = 1;
+        lastSampleTime = now;
         return changed;
     }
     
@@ -155,7 +170,7 @@ class SensorTestBed {
                 oledWrapper.printTitle(String("0000000000"), 3);
                 delay(2000);
 	        }
-            oledWrapper.printTitle(sensor->getLastVal(), 3);
+            oledWrapper.printTitle(sensor->buildValueString(), 3);
             delay(2000);
         }
     }
