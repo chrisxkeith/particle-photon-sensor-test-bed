@@ -193,9 +193,24 @@ class SensorTestBed {
     // Publish when changed, but not more often than minimum requested rate
     // (and never faster than 1/second, which is a Particle cloud restriction.)
     void publish() {
+        String json("{");
+        bool first = true;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
             publish(sensor->getName(), sensor->buildValueString());
+            if (first) {
+                first = false;
+            } else {
+                json.concat(",");
+            }
+            json.concat("\"");
+            json.concat(sensor->getName());
+            json.concat("\":\"");
+            json.concat(sensor->buildValueString());
+            json.concat("\"");
         }
+        json.concat("}");
+// Enable when it's actually needed.
+//        publish(System.deviceID(), json);
     }
 
     // For many sensors, sampling more than necessary shouldn't be a problem.
