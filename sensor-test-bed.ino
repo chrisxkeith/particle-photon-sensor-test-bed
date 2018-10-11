@@ -116,6 +116,9 @@ int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeco
 class SensorTestBed {
   private:
 
+    // Names should unique for reporting purposes.
+    // Names should also contain the string "sensor".
+    // Also, a unique number is recommended, e.g., "Thermistor sensor 01".
     SensorData t1[ 2 ] = {
          SensorData(A1, "Thermistor 01b sensor:", 0.036),
          SensorData(A0, "", 1)
