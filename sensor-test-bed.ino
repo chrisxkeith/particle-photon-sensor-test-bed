@@ -22,6 +22,69 @@ class TimeSync {
 };
 TimeSync timeSync = TimeSync();
 
+// Queue messages to avoid rate limiting on particle.io site.	
+class Publisher {	
+    private:	
+     const static unsigned int MAX_QUEUED_MESSAGES = 20;	
+     String              queued_events[MAX_QUEUED_MESSAGES];	
+     String              queued_datas[MAX_QUEUED_MESSAGES];	
+     int                 queue_start = 0;	
+     unsigned int        last_publish_in_millis = 0;	
+    
+      void publish_internal(String event, String data) {	
+         Particle.publish(event, data, 1, PRIVATE);	
+         last_publish_in_millis = millis();	
+     }	
+    
+    public:	
+     Publisher() {	
+         for (int i = 0; i < MAX_QUEUED_MESSAGES; i++) {	
+             queued_events[i] = String("");	
+             queued_datas[i] = String("");	
+         }	
+     }	
+
+  void publish(String event, String data) {	
+     if (last_publish_in_millis + 1000 < millis() && queued_events[queue_start].length() == 0) {	
+         // Publish immediately if we can.	
+         publish_internal(event, data);	
+     } else {	
+         int next_entry = queue_start;	
+         while (queued_events[next_entry].length() > 0) {	
+             next_entry++;	
+             if (next_entry >= MAX_QUEUED_MESSAGES) {	
+                 // We wrapped around to beginning of the buffers.	
+                 next_entry = 0;	
+             }	
+             if (next_entry == queue_start) {	
+                 // We wrapped around to the beginning of the queue.	
+                 // Advance queue_start and write over the oldest message.	
+                 queue_start++;	
+                 if (queue_start >= MAX_QUEUED_MESSAGES) {	
+                     queue_start = 0;	
+                 }	
+                 break;	
+             }	
+         }	
+         queued_events[next_entry] = event;	
+         queued_datas[next_entry] = data;	
+     }	
+ }	
+
+  void handlePublish() {	
+     if ((last_publish_in_millis + 1000 < millis()) && queued_events[queue_start].length() > 0) {	
+         publish_internal(queued_events[queue_start], queued_datas[queue_start]);	
+         queued_events[queue_start] = String("");	
+         queued_datas[queue_start] = String("");	
+         queue_start++;	
+         if (queue_start >= MAX_QUEUED_MESSAGES) {	
+             queue_start = 0;	
+         }	
+     }	
+ }	
+};
+Publisher  publisher;
+ 
 #include <SparkFunMicroOLED.h>
 // https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
 #include <math.h>
@@ -110,7 +173,7 @@ class SensorData {
     }
 };
 
-int publishIntervalInSeconds = 1;
+int publishIntervalInSeconds = 5;
 int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
 class SensorTestBed {
@@ -120,7 +183,7 @@ class SensorTestBed {
     // Names should also contain the string "sensor".
     // Also, a unique number is recommended, e.g., "Thermistor sensor 01".
     SensorData t1[ 2 ] = {
-         SensorData(A1, "Thermistor 01b sensor:", 0.036),
+         SensorData(A0, "Thermistor 01 sensor:", 0.036),
          SensorData(A0, "", 1)
     };
     SensorData t2[ 2 ] = {
@@ -154,7 +217,7 @@ class SensorTestBed {
     }
     
     void publish(String event, String data) {
-      Particle.publish(event, data, 1, PRIVATE);
+      publisher.publish(event, data);
     }
 
 	bool sample() {
@@ -255,11 +318,8 @@ int publishVals(String command) {
 }
 
 void setup() {
-    Serial.begin(9600);
     Particle.variable("GitHubHash", githubHash);
-
     Particle.variable("internalTime", internalTime);
-
     Particle.variable("PublishSecs", publishIntervalInSeconds);
     Particle.variable("NextPublish", nextPublish);
     Particle.function("SetPublish", setPublish);
@@ -271,4 +331,5 @@ void setup() {
 void loop() {
     timeSync.sync();
     sensorTestBed.sampleSensorData();
+    publisher.handlePublish();
 }
