@@ -110,7 +110,7 @@ class SensorData {
     }
 };
 
-int publishIntervalInSeconds = 60;
+int publishIntervalInSeconds = 5;
 int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
 class SensorTestBed {
@@ -134,6 +134,10 @@ class SensorTestBed {
          // A5 belongs to SPI/I2C.
          SensorData(A0, "", 1)
     };
+    SensorData t4[ 2 ] = {
+         SensorData(A0, "Photon 04 temperature sensor:", 0.036),
+         SensorData(A0, "", 1)
+    };
     SensorData unknownID[ 2 ] = {
          SensorData(A0, "Unknown device id!", 1),
          SensorData(A0, "", 1)
@@ -149,6 +153,9 @@ class SensorTestBed {
         }
         if (id.equals("290046001147343438323536")) {
             return t3;
+        }
+        if (id.equals("19002a001347363336383438")) {
+            return t4;
         }
         return unknownID;
     }
