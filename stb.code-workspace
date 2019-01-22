@@ -5,7 +5,7 @@
         "files.associations": {
             "*.ino": "cpp"
         },
-        "particle.targetDevice": "photon-05",
+        "particle.targetDevice": "thermistor-test",
         "particle.firmwareVersion": "0.8.0-rc.10",
         "particle.targetPlatform": "photon"
     },

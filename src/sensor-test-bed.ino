@@ -3,12 +3,7 @@ const String githubHash = "to be replaced manually in build.particle.io after 'g
 
 // https://opensource.org/licenses/MIT
 
-#ifndef UINT_MAX
-#define UINT_MAX 4294967295
-#endif
-#ifndef INT_MIN
-#define INT_MIN (-2147483648)
-#endif
+#include <limits.h>
 
 class JSonizer {
   public:
@@ -33,14 +28,6 @@ class JSonizer {
     }
 };
 
-int publishIntervalInSeconds = 5;
-int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
-void publish(String event, String data) {
-    Particle.publish(event, data, 1, PRIVATE);
-    delay(1000); // will be rate-limited if we send more than 1 per second.
-}
-
-
 class Utils {
   public:
     static int setInt(String command, int& i, int lower, int upper) {
@@ -50,6 +37,10 @@ class Utils {
             return 1;
         }
         return -1;
+    }
+    static void publish(String event, String data) {
+        Particle.publish(event, data, 1, PRIVATE);
+        delay(1000); // will be rate-limited if we send more than 1 per second.
     }
 };
 
@@ -99,11 +90,12 @@ class TimeSupport {
     }
 
     int setTimeZoneOffset(String command) {
+        timeZoneString = "???";
         return Utils::setInt(command, timeZoneOffset, -24, 24);
     }
 
     void publishJson() {
-        publish("TimeSupport", getSettings());
+        Utils::publish("TimeSupport", getSettings());
     }
 };
 TimeSupport    timeSupport(-8, "PST");
@@ -199,6 +191,9 @@ class SensorData {
 class SensorTestBed {
   private:
 
+    int publishIntervalInSeconds = 5;
+    int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
+
     // Names should unique for reporting purposes.
     // Names should also contain the string "sensor".
     // Also, a unique number is recommended, e.g., "Thermistor sensor 01".
@@ -276,18 +271,13 @@ class SensorTestBed {
 	    setNextPublish();
 	}
 
-    void publish(String event, String data) {
-        Particle.publish(event, data, 1, PRIVATE);
-        delay(1000);
-    }
-
     // Publish when changed, but not more often than minimum requested rate
     // (and never faster than 1/second, which is a Particle cloud restriction.)
     void publish() {
         String json("{");
         bool first = true;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            publish(sensor->getName(), sensor->buildValueString());
+            Utils::publish(sensor->getName(), sensor->buildValueString());
             if (first) {
                 first = false;
             } else {
@@ -300,8 +290,6 @@ class SensorTestBed {
             json.concat("\"");
         }
         json.concat("}");
-// Enable when it's actually needed.
-//        publish(System.deviceID(), json);
     }
 
     // For many sensors, sampling more than necessary shouldn't be a problem.
@@ -316,6 +304,19 @@ class SensorTestBed {
             publish();
             setNextPublish();
         }
+    }
+
+    void publishJson() {
+        int     i = 0;
+        for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            i++;
+        }
+        String  json("{");
+        JSonizer::addFirstSetting(json, "numberOfDevices", String(i));
+        JSonizer::addSetting(json, "publishIntervalInSeconds", String(publishIntervalInSeconds));
+        JSonizer::addSetting(json, "nextPublish", timeSupport.timeStrZ(nextPublish));
+        json.concat("}");
+        Utils::publish("TestBed", json);
     }
 
     int setPublish(String command) {
@@ -345,8 +346,6 @@ int publishVals(String command) {
 String getOverallSettings() {
     String json("{");
     JSonizer::addFirstSetting(json, "githubHash", githubHash);
-    JSonizer::addSetting(json, "publishIntervalInSeconds", String(publishIntervalInSeconds));
-    JSonizer::addSetting(json, "nextPublish", timeSupport.timeStrZ(nextPublish));
     json.concat("}");
     return json;
 }
@@ -354,11 +353,13 @@ String getOverallSettings() {
 // getSettings() is already defined somewhere.
 int pubSettings(String command) {
     if (command.compareTo("") == 0) {
-        publish("Settings", getOverallSettings());
+        Utils::publish("Settings", getOverallSettings());
     } else if (command.compareTo("time") == 0) {
         timeSupport.publishJson();
+    } else if (command.compareTo("testbed") == 0) {
+        sensorTestBed.publishJson();
     } else {
-        publish("GetSettings bad input", command);
+        Utils::publish("GetSettings bad input", command);
     }
     return 1;
 }
@@ -371,7 +372,7 @@ int rawPublish(String command) {
         event = command.substring(0, separatorIndex);
         data = command.substring(separatorIndex);
     }
-    sensorTestBed.publish(event, data);
+    Utils::publish(event, data);
     return 1;
 }
 
