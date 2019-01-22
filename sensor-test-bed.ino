@@ -3,24 +3,103 @@ const String githubHash = "to be replaced manually in build.particle.io after 'g
 
 // https://opensource.org/licenses/MIT
 
-String internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL) + " " + String(Time.now());
-class TimeSync {
-    private:
-        const unsigned long ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
-        unsigned long lastSync = millis();
-    public:
-        TimeSync() {
-            sync();
+class JSonizer {
+  public:
+    static void addFirstSetting(String& json, String key, String val) {
+        json.concat("\"");
+        json.concat(key);
+        json.concat("\":\"");
+        json.concat(val);
+        json.concat("\"");
+    }
+
+    static void addSetting(String& json, String key, String val) {
+        json.concat(",");
+        addFirstSetting(json, key, val);
+    }
+    
+    String toString(bool b) {
+        if (b) {
+            return "true";
         }
-        void sync() {
-            internalTime = Time.format(Time.now(), TIME_FORMAT_ISO8601_FULL) + " " + String(Time.now());
-            if (millis() - lastSync > ONE_DAY_IN_MILLISECONDS) {
-                Particle.syncTime();
-                lastSync = millis();
-            }
-        }
+        return "false";
+    }
 };
-TimeSync timeSync = TimeSync();
+
+int publishIntervalInSeconds = 5;
+int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
+void publish(String event, String data) {
+    Particle.publish(event, data, 1, PRIVATE);
+    delay(1000); // will be rate-limited if we send more than 1 per second.
+}
+
+
+class Utils {
+  public:
+    static int setInt(String command, int& i, int lower, int upper) {
+        int tempMin = command.toInt();
+        if (tempMin > lower && tempMin < upper) {
+            i = tempMin;
+            return 1;
+        }
+        return -1;
+    }
+};
+
+class TimeSupport {
+  private:
+    const unsigned long ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+    unsigned long lastSync = millis(); // store millis() for lastSync as unsigned long
+    String timeZoneString;
+
+    String getSettings() {
+        String json("{");
+        JSonizer::addFirstSetting(json, "lastSync", String(lastSync));
+        JSonizer::addSetting(json, "timeZoneOffset", String(timeZoneOffset));
+        JSonizer::addSetting(json, "timeZoneString", String(timeZoneString));
+        JSonizer::addSetting(json, "internalTime", nowZ());
+        json.concat("}");
+        return json;
+    }
+
+  public:
+    int timeZoneOffset;
+
+    TimeSupport(int timeZoneOffset, String timeZoneString) {
+        this->timeZoneOffset = timeZoneOffset;
+        this->timeZoneString = timeZoneString;
+        Time.zone(timeZoneOffset);
+        Particle.syncTime();
+    }
+
+    String timeStrZ(time_t t) {
+        String fmt("%a %b %d %H:%M:%S ");
+        fmt.concat(timeZoneString);
+        fmt.concat(" %Y");
+        return Time.format(t, fmt);
+    }
+
+    String nowZ() {
+        return timeStrZ(Time.now());
+    }
+
+    void handleTime() {
+        if (millis() - lastSync > ONE_DAY_IN_MILLISECONDS) {    // If it's been a day since last sync...
+                                                                // Request time synchronization from the Particle Cloud
+            Particle.syncTime();
+            lastSync = millis();
+        }
+    }
+
+    int setTimeZoneOffset(String command) {
+        return Utils::setInt(command, timeZoneOffset, -24, 24);
+    }
+
+    void publishJson() {
+        publish("TimeSupport", getSettings());
+    }
+};
+TimeSupport    timeSupport(-8, "PST");
 
 #include <SparkFunMicroOLED.h>
 // https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
@@ -109,9 +188,6 @@ class SensorData {
         return String(applyFactor(lastVal));
     }
 };
-
-int publishIntervalInSeconds = 5;
-int nextPublish = publishIntervalInSeconds - (Time.now() % publishIntervalInSeconds);
 
 class SensorTestBed {
   private:
@@ -259,6 +335,27 @@ int publishVals(String command) {
     return 1;
 }
 
+String getOverallSettings() {
+    String json("{");
+    JSonizer::addFirstSetting(json, "githubHash", githubHash);
+    JSonizer::addSetting(json, "publishIntervalInSeconds", String(publishIntervalInSeconds));
+    JSonizer::addSetting(json, "nextPublish", timeSupport.timeStrZ(nextPublish));
+    json.concat("}");
+    return json;
+}
+
+// getSettings() is already defined somewhere.
+int pubSettings(String command) {
+    if (command.compareTo("") == 0) {
+        publish("Settings", getOverallSettings());
+    } else if (command.compareTo("time") == 0) {
+        timeSupport.publishJson();
+    } else {
+        publish("GetSettings bad input", command);
+    }
+    return 1;
+}
+
 int rawPublish(String command) {
     String  event(command);
     String  data(command);
@@ -272,18 +369,15 @@ int rawPublish(String command) {
 }
 
 void setup() {
-    Particle.variable("GitHubHash", githubHash);
-    Particle.variable("internalTime", internalTime);
-    Particle.variable("PublishSecs", publishIntervalInSeconds);
-    Particle.variable("NextPublish", nextPublish);
-    Particle.function("SetPublish", setPublish);
+    Particle.function("GetSettings", pubSettings);
+    Particle.function("SetPublish",  setPublish);
     Particle.function("PublishVals", publishVals);
-    Particle.function("RawPublish", rawPublish);
+    Particle.function("RawPublish",  rawPublish);
     sensorTestBed.sampleSensorData();
     sensorTestBed.publish();
 }
 
 void loop() {
-    timeSync.sync();
+    timeSupport.handleTime();
     sensorTestBed.sampleSensorData();
 }
