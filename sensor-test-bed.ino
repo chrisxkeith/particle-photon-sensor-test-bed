@@ -123,19 +123,15 @@ class SensorTestBed {
          SensorData(A0, "Thermistor 01 sensor:", 0.036),
          SensorData(A0, "", 1)
     };
-    SensorData t2[ 2 ] = {
-         SensorData(A0, "Thermistor 02 sensor:", 0.036),
+    SensorData t5[ 2 ] = {
+         SensorData(A0, "Thermistor 05 sensor:", 0.036),
          SensorData(A0, "", 1)
     };
-    SensorData t3[ 2 ] = {
-         SensorData(A0, "Thermistor 03 sensor:", 0.036),
+    SensorData t6[ 2 ] = {
+         SensorData(A0, "Thermistor 06 sensor:", 0.036),
          // A2 belongs to OLED.
          // A3 belongs to SPI/I2C.
          // A5 belongs to SPI/I2C.
-         SensorData(A0, "", 1)
-    };
-    SensorData t4[ 2 ] = {
-         SensorData(A0, "Photon 04 temperature sensor:", 0.036),
          SensorData(A0, "", 1)
     };
     SensorData unknownID[ 2 ] = {
@@ -143,19 +139,20 @@ class SensorTestBed {
          SensorData(A0, "", 1)
     };
 
+    String thermistor_test  = "1c002c001147343438323536";
+    String photon_05        = "19002a001347363336383438";
+    String photon_06        = "290048001647363335343834";
+
     SensorData* getSensors() {
         String id = System.deviceID();
-        if (id.equals("1c002c001147343438323536")) {
+        if (id.equals(thermistor_test)) {
             return t1;
         }
-        if (id.equals("300040001347343438323536")) {
-            return t2;
+        if (id.equals(photon_05)) {
+            return t5;
         }
-        if (id.equals("290046001147343438323536")) {
-            return t3;
-        }
-        if (id.equals("19002a001347363336383438")) {
-            return t4;
+        if (id.equals(photon_06)) {
+            return t6;
         }
         return unknownID;
     }
