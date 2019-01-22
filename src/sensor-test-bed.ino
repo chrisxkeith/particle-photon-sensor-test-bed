@@ -3,6 +3,13 @@ const String githubHash = "to be replaced manually in build.particle.io after 'g
 
 // https://opensource.org/licenses/MIT
 
+#ifndef UINT_MAX
+#define UINT_MAX 4294967295
+#endif
+#ifndef INT_MIN
+#define INT_MIN (-2147483648)
+#endif
+
 class JSonizer {
   public:
     static void addFirstSetting(String& json, String key, String val) {
