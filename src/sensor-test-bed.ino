@@ -201,6 +201,10 @@ class SensorTestBed {
          SensorData(A0, "Thermistor 01 sensor:", 0.036),
          SensorData(A0, "", 1)
     };
+    SensorData t2[ 2 ] = {
+         SensorData(A0, "Thermistor 02 sensor:", 0.036),
+         SensorData(A0, "", 1)
+    };
     SensorData t5[ 2 ] = {
          SensorData(A0, "Thermistor 05 sensor:", 0.036),
          SensorData(A0, "", 1)
@@ -228,7 +232,7 @@ class SensorTestBed {
             return t1;
         }
         if (id.equals(thermistor2_test)) {
-            return t1;
+            return t2;
         }
         if (id.equals(photon_05)) {
             return t5;
