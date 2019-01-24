@@ -218,12 +218,16 @@ class SensorTestBed {
     };
 
     String thermistor_test  = "1c002c001147343438323536";
+    String thermistor2_test = "300040001347343438323536";
     String photon_05        = "19002a001347363336383438";
     String photon_06        = "290048001647363335343834";
 
     SensorData* getSensors() {
         String id = System.deviceID();
         if (id.equals(thermistor_test)) {
+            return t1;
+        }
+        if (id.equals(thermistor2_test)) {
             return t1;
         }
         if (id.equals(photon_05)) {
