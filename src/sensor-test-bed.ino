@@ -378,7 +378,13 @@ int rawPublish(String command) {
     int     separatorIndex = command.indexOf(":");
     if (separatorIndex > 0) { // Not zero, need at least one character for event.
         event = command.substring(0, separatorIndex);
-        data = command.substring(separatorIndex);
+        data = command.substring(separatorIndex + 1);
+    } else {
+        int     separatorIndex = command.indexOf("=");
+        if (separatorIndex > 0) { // Not zero, need at least one character for event.
+          event = command.substring(0, separatorIndex);
+          data = command.substring(separatorIndex + 1);
+      }
     }
     Utils::publish(event, data);
     return 1;
