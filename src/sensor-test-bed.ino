@@ -263,7 +263,6 @@ class SensorTestBed {
                 delay(2000);
 	        }
             oledWrapper.printTitle(sensor->buildValueString(), 3);
-            delay(2000);
         }
     }
 
