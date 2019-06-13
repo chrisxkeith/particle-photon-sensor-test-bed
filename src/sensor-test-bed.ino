@@ -104,19 +104,19 @@ TimeSupport    timeSupport(-8, "PST");
 // https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
 #include <math.h>
 
-MicroOLED oled;
-
 class OLEDWrapper {
-    public:
-        OLEDWrapper() {
-            oled.begin();    // Initialize the OLED
-            oled.clear(ALL); // Clear the display's internal memory
-            oled.display();  // Display what's in the buffer (splashscreen)
-            delay(1000);     // Delay 1000 ms
-            oled.clear(PAGE); // Clear the buffer.
-        }
+  public:
+    MicroOLED oled;
 
-    void printTitle(String title, int font)
+    OLEDWrapper() {
+        oled.begin();    // Initialize the OLED
+        oled.clear(ALL); // Clear the display's internal memory
+        oled.display();  // Display what's in the buffer (splashscreen)
+        delay(1000);     // Delay 1000 ms
+        oled.clear(PAGE); // Clear the buffer.
+    }
+
+    void display(String title, int font)
     {
       oled.clear(PAGE);
       oled.setFontType(font);
@@ -124,8 +124,113 @@ class OLEDWrapper {
       oled.print(title);
       oled.display();
     }
-};
 
+    bool errShown = false;
+    void verify(int xStart, int yStart, int xi, int yi) {
+      if (!errShown && (xi >= oled.getLCDWidth() || yi >= oled.getLCDHeight())) {
+        String json("{");
+        JSonizer::addSetting(json, "xStart", String(xStart));
+        JSonizer::addSetting(json, "yStart", String(yStart));
+        JSonizer::addSetting(json, "xi", String(xi));
+        JSonizer::addSetting(json, "yi", String(yi));
+        json.concat("}");
+        Utils::publish("super-pixel coordinates out of range", json);
+        errShown = true;
+      }
+    }
+
+   void superPixel(int xStart, int yStart, int xSuperPixelSize, int ySuperPixelSize, int pixelVal,
+         int left, int right, int top, int bottom) {
+     int pixelSize = xSuperPixelSize * ySuperPixelSize;
+     if (pixelVal < 0) {
+       pixelVal = 0;
+     } else if (pixelVal >= pixelSize) {
+       pixelVal = pixelSize - 1;
+     }
+     for (int xi = xStart; xi < xStart + xSuperPixelSize; xi++) {
+       for (int yi = yStart; yi < yStart + ySuperPixelSize; yi++) {
+         verify(xStart, yStart, xi, yi);
+         int r = rand() % (pixelSize + 1);
+/*
+         float xfactor;
+         if (xi >= xStart + (xSuperPixelSize / 2)) {
+           xfactor = left;
+         } else {
+           xfactor = right;
+         }
+         float yfactor;
+         if (yi >= yStart + (ySuperPixelSize / 2)) {
+           yfactor = top;
+         } else {
+           yfactor = bottom;
+         }
+         // how much the adjacent super-pixels will affect the current one.
+         float weight = ((xfactor + yfactor) / 2.0);
+
+         // width/height size of super-pixel.
+         float size = ((xSuperPixelSize + ySuperPixelSize) / 2.0);
+
+         // distance of this pixel from the center of the super-pixel.
+         float xdistance = abs(xi - (xStart + (xSuperPixelSize / 2.0)));
+         float ydistance = abs(yi - (yStart + (ySuperPixelSize / 2.0)));
+         float distance = (xdistance + ydistance) / 2.0;
+         int r = rand() * (pixelVal+ (weight * (distance / size)));
+*/
+         if (r < pixelVal) { // lower value maps to white pixel.
+           oled.pixel(xi, yi);
+         }
+       }
+     }
+   }
+
+    void publishJson() {
+        String json("{");
+        JSonizer::addFirstSetting(json, "getLCDWidth()", String(oled.getLCDWidth()));
+        JSonizer::addSetting(json, "getLCDHeight()", String(oled.getLCDHeight()));
+        json.concat("}");
+        Utils::publish("OLED", json);
+    }
+
+    void testPattern() {
+      int pixelVals[64];
+      for (int i = 0; i < 64; i++) {
+        pixelVals[i] = i;
+      }
+      int xSuperPixelSize = 6;	
+      int ySuperPixelSize = 6;	
+      displayArray(xSuperPixelSize, ySuperPixelSize, pixelVals);
+      delay(15000);	
+    }
+
+    void displayArray(int xSuperPixelSize, int ySuperPixelSize, int pixelVals[]) {
+      oled.clear(PAGE);
+      for (int i = 0; i < 64; i++) {
+        int x = (i % 8) * xSuperPixelSize;
+        int y = (i / 8) * ySuperPixelSize;
+        int left = x;
+        int right = x;
+        int top = y;
+        int bottom = y;
+        if (x > 0) {
+          left = pixelVals[i - 1];
+        }
+        if (x < 7) {
+          right = pixelVals[i + 1];
+        }
+        if (y > 0) {
+          top = pixelVals[i - 8];
+        }
+        if (y < 7) {
+          top = pixelVals[i + 8];
+        }
+        // This (admittedly confusing) switcheroo of x and y axes is to make the orientation
+        // of the sensor (with logo reading correctly) match the orientation of the OLED.
+        superPixel(y, x, ySuperPixelSize, xSuperPixelSize, pixelVals[i],
+            left, right, top, bottom);
+      }
+      oled.display();
+    }
+};
 OLEDWrapper oledWrapper;
 
 class SensorData {
@@ -259,10 +364,10 @@ class SensorTestBed {
 	        if (first) {
 	            first = false;
 	        } else {
-                oledWrapper.printTitle(String("0000000000"), 3);
+                oledWrapper.display(String("0000000000"), 3);
                 delay(2000);
 	        }
-            oledWrapper.printTitle(sensor->buildValueString(), 3);
+            oledWrapper.display(sensor->buildValueString(), 3);
         }
     }
 
@@ -389,11 +494,17 @@ int rawPublish(String command) {
     return 1;
 }
 
+int testPatt(String command) {	
+  oledWrapper.testPattern();	
+  return 1;	
+}
+
 void setup() {
     Particle.function("GetSettings", pubSettings);
     Particle.function("SetPublish",  setPublish);
     Particle.function("PublishVals", publishVals);
     Particle.function("RawPublish",  rawPublish);
+    Particle.function("testPattern", testPatt);
     sensorTestBed.sampleSensorData();
     sensorTestBed.publish();
 }
