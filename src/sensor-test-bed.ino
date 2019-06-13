@@ -202,9 +202,13 @@ class OLEDWrapper {
       int xSuperPixelSize = 6;	
       int ySuperPixelSize = 6;
       int pixelSize = xSuperPixelSize * ySuperPixelSize; 
+      float diagonalDistance = sqrt((float)(xSuperPixelSize * xSuperPixelSize + ySuperPixelSize * ySuperPixelSize));
+      float factor = (float)pixelSize / diagonalDistance;
       int pixelVals[64];
       for (int i = 0; i < 64; i++) {
-        pixelVals[i] = (i * 36) / 64;
+        int x = (i % 8);
+        int y = (i / 8);
+        pixelVals[i] = (int)(round(sqrt((float)(x * x + y * y)) * factor));
       }
       displayArray(xSuperPixelSize, ySuperPixelSize, pixelVals);
       delay(5000);
