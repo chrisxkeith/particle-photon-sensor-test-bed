@@ -107,6 +107,7 @@ TimeSupport    timeSupport(-8, "PST");
 class OLEDWrapper {
   private:
     MicroOLED oled;
+    bool    disabled = false;
 
   public:
     bool    weighted = false;
@@ -121,11 +122,22 @@ class OLEDWrapper {
 
     void display(String title, int font)
     {
-      oled.clear(PAGE);
-      oled.setFontType(font);
-      oled.setCursor(0, 0);
-      oled.print(title);
-      oled.display();
+      if (! disabled) {
+        oled.clear(PAGE);
+        oled.setFontType(font);
+        oled.setCursor(0, 0);
+        oled.print(title);
+        oled.display();
+      }
+    }
+
+    void switchDisplay() {
+        if (!disabled) {
+            oled.clear(PAGE); // Clear the buffer.
+            oled.clear(ALL); // Clear the display's internal memory
+            oled.display();  // Display what's in the buffer
+        }
+        disabled = !disabled;
     }
 
     bool errShown = false;
@@ -514,12 +526,18 @@ int testPatt(String command) {
   return 1;	
 }
 
+int switchDisp(String command) {
+    oledWrapper.switchDisplay();
+    return 1;
+}
+
 void setup() {
     Particle.function("GetSettings", pubSettings);
     Particle.function("SetPublish",  setPublish);
     Particle.function("PublishVals", publishVals);
     Particle.function("RawPublish",  rawPublish);
     Particle.function("testPattern", testPatt);
+    Particle.function("SwitchDisp", switchDisp);
     sensorTestBed.sampleSensorData();
     sensorTestBed.publish();
 }
