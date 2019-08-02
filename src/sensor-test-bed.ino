@@ -105,10 +105,9 @@ TimeSupport    timeSupport(-8, "PST");
 #include <math.h>
 
 class OLEDWrapper {
-  private:
+  public:
     MicroOLED oled;
 
-  public:
     OLEDWrapper() {
         oled.begin();    // Initialize the OLED
         oled.clear(ALL); // Clear the display's internal memory
@@ -323,12 +322,19 @@ int setPublish(String command) {
 class OLEDDisplayer {
   private:
     int   tempToBlinkInF = 90;  // If at this temperature or above, blink the temperature display.
+    bool    invert = true;
   public:
     void display() {
         int temp = sensorTestBed.getValue("Thermistor 01 sensor:");
         if (temp >= tempToBlinkInF) {
-          oledWrapper.clear();
-          delay(500);
+          oledWrapper.oled.invert(invert);
+          invert = !invert;
+        } else {
+            if (!invert) {
+                // If going out of "blink" mode, make sure background is black.
+                oledWrapper.oled.invert(false);
+                invert = true;
+            }
         }
         oledWrapper.display(String(temp), 3);
         delay(1000);
