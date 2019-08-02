@@ -107,11 +107,8 @@ TimeSupport    timeSupport(-8, "PST");
 class OLEDWrapper {
   private:
     MicroOLED oled;
-    bool    disabled = false;
 
   public:
-    bool    weighted = false;
-
     OLEDWrapper() {
         oled.begin();    // Initialize the OLED
         oled.clear(ALL); // Clear the display's internal memory
@@ -122,85 +119,12 @@ class OLEDWrapper {
 
     void display(String title, int font)
     {
-      if (! disabled) {
         oled.clear(PAGE);
         oled.setFontType(font);
         oled.setCursor(0, 0);
         oled.print(title);
         oled.display();
-      }
     }
-
-    void switchDisplay() {
-        if (!disabled) {
-            oled.clear(PAGE); // Clear the buffer.
-            oled.clear(ALL); // Clear the display's internal memory
-            oled.display();  // Display what's in the buffer
-        }
-        disabled = !disabled;
-    }
-
-    bool errShown = false;
-    void verify(int xStart, int yStart, int xi, int yi) {
-      if (!errShown && (xi >= oled.getLCDWidth() || yi >= oled.getLCDHeight())) {
-        String json("{");
-        JSonizer::addSetting(json, "xStart", String(xStart));
-        JSonizer::addSetting(json, "yStart", String(yStart));
-        JSonizer::addSetting(json, "xi", String(xi));
-        JSonizer::addSetting(json, "yi", String(yi));
-        json.concat("}");
-        Utils::publish("super-pixel coordinates out of range", json);
-        errShown = true;
-      }
-    }
-
-   void superPixel(int xStart, int yStart, int xSuperPixelSize, int ySuperPixelSize, int pixelVal,
-         int left, int right, int top, int bottom) {
-     int pixelSize = xSuperPixelSize * ySuperPixelSize;
-     if (pixelVal < 0) {
-       pixelVal = 0;
-     } else if (pixelVal >= pixelSize) {
-       pixelVal = pixelSize - 1;
-     }
-     for (int xi = xStart; xi < xStart + xSuperPixelSize; xi++) {
-       for (int yi = yStart; yi < yStart + ySuperPixelSize; yi++) {
-         verify(xStart, yStart, xi, yi);
-
-         // Value between 1 and pixelSize - 2,
-         // so pixelVal of 0 will have all pixels off
-         // and pixelVal of pixelSize - 1 will have all pixels on. 
-         int r = (rand() % (pixelSize - 2)) + 1;
-         if (weighted) {
-            float xfactor;
-            if (xi >= xStart + (xSuperPixelSize / 2)) {
-                xfactor = left;
-            } else {
-                xfactor = right;
-            }
-            float yfactor;
-            if (yi >= yStart + (ySuperPixelSize / 2)) {
-                yfactor = top;
-            } else {
-                yfactor = bottom;
-            }
-            // how much the adjacent super-pixels will affect the current one.
-            float weight = ((xfactor + yfactor) / 2.0);
-
-            // width/height size of super-pixel.
-            float size = ((xSuperPixelSize + ySuperPixelSize) / 2.0);
-
-            // distance of this pixel from the center of the super-pixel.
-            float xdistance = abs(xi - (xStart + (xSuperPixelSize / 2.0)));
-            float ydistance = abs(yi - (yStart + (ySuperPixelSize / 2.0)));
-            float distance = (xdistance + ydistance) / 2.0;
-            int r = rand() * (pixelVal+ (weight * (distance / size)));
-         }
-         if (r < pixelVal) { // lower value maps to white pixel.
-           oled.pixel(xi, yi);
-         }
-       }
-     }
-   }
 
     void publishJson() {
         String json("{");
@@ -210,52 +134,8 @@ class OLEDWrapper {
         Utils::publish("OLED", json);
     }
 
-    void testPattern() {
-      int xSuperPixelSize = 6;	
-      int ySuperPixelSize = 6;
-      int pixelSize = xSuperPixelSize * ySuperPixelSize; 
-      float diagonalDistance = sqrt((float)(xSuperPixelSize * xSuperPixelSize + ySuperPixelSize * ySuperPixelSize));
-      float factor = (float)pixelSize / diagonalDistance;
-      int pixelVals[64];
-      for (int i = 0; i < 64; i++) {
-        int x = (i % 8);
-        int y = (i / 8);
-        pixelVals[i] = (int)(round(sqrt((float)(x * x + y * y)) * factor));
-      }
-      displayArray(xSuperPixelSize, ySuperPixelSize, pixelVals);
-      delay(5000);
-      this->weighted = true;
-      displayArray(xSuperPixelSize, ySuperPixelSize, pixelVals);
-      delay(5000);	
-    }
-
-    void displayArray(int xSuperPixelSize, int ySuperPixelSize, int pixelVals[]) {
-      oled.clear(PAGE);
-      for (int i = 0; i < 64; i++) {
-        int x = (i % 8) * xSuperPixelSize;
-        int y = (i / 8) * ySuperPixelSize;
-        int left = x;
-        int right = x;
-        int top = y;
-        int bottom = y;
-        if (x > 0) {
-          left = pixelVals[i - 1];
-        }
-        if (x < 7) {
-          right = pixelVals[i + 1];
-        }
-        if (y > 0) {
-          top = pixelVals[i - 8];
-        }
-        if (y < 7) {
-          top = pixelVals[i + 8];
-        }
-        // This (admittedly confusing) switcheroo of x and y axes is to make the orientation
-        // of the sensor (with logo reading correctly) match the orientation of the OLED.
-        superPixel(y, x, ySuperPixelSize, xSuperPixelSize, pixelVals[i],
-            left, right, top, bottom);
-      }
-      oled.display();
+    void clear() {
+      oled.clear(ALL);
     }
 };
 OLEDWrapper oledWrapper;
@@ -266,9 +146,6 @@ class SensorData {
     String  name;
     double  factor; // apply to get human-readable values, e.g., degrees F
     int     lastVal;
-    double  accumulatedVals;
-    int     nAccumulatedVals;
-    int     lastSampleTime;
 
   public:
     SensorData(int pin, String name, double factor) {
@@ -276,47 +153,29 @@ class SensorData {
         this->name = name;
         this->factor = factor;
         this->lastVal = INT_MIN;
-        this->accumulatedVals = 0.0;
-        this->nAccumulatedVals = 0;
-        this->lastSampleTime = 0;
         pinMode(pin, INPUT);
     }
     
     String getName() { return name; }
 
-    bool sample() {
-        int nextSampledVal;
+    void sample() {
         if (pin >= A0 && pin <= A5) {
-            nextSampledVal = analogRead(pin);
+            lastVal = analogRead(pin);
         } else {
-            nextSampledVal = digitalRead(pin);
+            lastVal = digitalRead(pin);
         }
-        int now = Time.now();
-
-        if (lastSampleTime == 0) {
-            accumulatedVals += nextSampledVal;
-            nAccumulatedVals++;
-        } else if (now < lastSampleTime + 1) {
-        // Take average of all samples over 1 second interval.
-            accumulatedVals += nextSampledVal;
-            nAccumulatedVals++;
-            return false;
-        }
-        int nextVal = accumulatedVals / nAccumulatedVals;
-        bool changed = ((applyFactor(lastVal) != applyFactor(nextVal)));
-        lastVal = nextVal;
-        accumulatedVals = lastVal;
-        nAccumulatedVals = 1;
-        lastSampleTime = now;
-        return changed;
     }
     
     int applyFactor(int val) {
         return val * factor;
     }
 
+    int getValue() {
+        return applyFactor(lastVal);
+    }
+
     String buildValueString() {
-        return String(applyFactor(lastVal));
+        return String(getValue());
     }
 };
 
@@ -375,26 +234,9 @@ class SensorTestBed {
         return unknownID;
     }
     
-	bool sample() {
-	    bool changed = false;
+	void sample() {
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-            if (sensor->sample()) {
-                changed = true;
-            }
-        }
-        return changed;
-    }
-
-    void displayValues() {
-        bool first = true;
-	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
-	        if (first) {
-	            first = false;
-	        } else {
-                oledWrapper.display(String("0000000000"), 3);
-                delay(2000);
-	        }
-            oledWrapper.display(sensor->buildValueString(), 3);
+            sensor->sample();
         }
     }
 
@@ -431,14 +273,17 @@ class SensorTestBed {
         json.concat("}");
     }
 
-    // For many sensors, sampling more than necessary shouldn't be a problem.
-    // For sensors like a moisture sensor, however, sampling should only happen when necessary.
-    // See https://learn.sparkfun.com/tutorials/soil-moisture-sensor-hookup-guide .
-    void sampleSensorData() {
-        // If any sensor data changed, display it immediately.
-        if (sample()) {
-            displayValues();
+    int getValue(String sensorName) {
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            if (sensor->getName().equals(sensorName)) {
+                return sensor->getValue();
+            }
         }
+        return 999;
+    }
+
+    void sampleSensorData() {
+        sample();
         if (nextPublish <= Time.now()) {
             publish();
             setNextPublish();
@@ -475,6 +320,38 @@ int setPublish(String command) {
     return sensorTestBed.setPublish(command);
 }
 
+class OLEDDisplayer {
+  private:
+    int   tempToBlinkInF = 90;  // If at this temperature or above, blink the temperature display.
+  public:
+    void display() {
+        int temp = sensorTestBed.getValue("Thermistor 01 sensor:");
+        if (temp >= tempToBlinkInF) {
+          oledWrapper.clear();
+          delay(500);
+        }
+        oledWrapper.display(String(temp), 3);
+        delay(1000);
+    }
+
+    int setDispTemp(String cmd) {
+      this->tempToBlinkInF = atoi(cmd);
+      return 1;
+    }
+
+    void publishJson() {
+      String json("{");
+      JSonizer::addFirstSetting(json, "tempToBlinkInF", String(tempToBlinkInF));
+      json.concat("}");
+      Utils::publish("OLEDDisplayer json", json);
+    }
+};
+OLEDDisplayer oledDisplayer;
+
+int setDispTemp(String command) {
+  return oledDisplayer.setDispTemp(command);
+}
+
 // build.particle.io may think that this has timed out if there are more than a couple of sensors
 // (and give the "Bummer..." error), but it does finish.
 int publishVals(String command) {
@@ -497,6 +374,8 @@ int pubSettings(String command) {
         timeSupport.publishJson();
     } else if (command.compareTo("testbed") == 0) {
         sensorTestBed.publishJson();
+    } else if (command.compareTo("display") == 0) {
+        oledDisplayer.publishJson();
     } else {
         Utils::publish("GetSettings bad input", command);
     }
@@ -521,28 +400,20 @@ int rawPublish(String command) {
     return 1;
 }
 
-int testPatt(String command) {	
-  oledWrapper.testPattern();	
-  return 1;	
-}
-
-int switchDisp(String command) {
-    oledWrapper.switchDisplay();
-    return 1;
-}
-
 void setup() {
     Particle.function("GetSettings", pubSettings);
     Particle.function("SetPublish",  setPublish);
     Particle.function("PublishVals", publishVals);
     Particle.function("RawPublish",  rawPublish);
-    Particle.function("testPattern", testPatt);
-    Particle.function("SwitchDisp", switchDisp);
+    Particle.function("setDispTemp", setDispTemp);
     sensorTestBed.sampleSensorData();
     sensorTestBed.publish();
+    oledDisplayer.display();
+    Particle.publish("Debug", "Finished setup...", 1, PRIVATE);
 }
 
 void loop() {
     timeSupport.handleTime();
     sensorTestBed.sampleSensorData();
+    oledDisplayer.display();
 }
