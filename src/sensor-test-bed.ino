@@ -116,13 +116,29 @@ class OLEDWrapper {
         oled.clear(PAGE); // Clear the buffer.
     }
 
-    void display(String title, int font)
-    {
+    void display(String title, int font, uint8_t x, uint8_t y) {
         oled.clear(PAGE);
         oled.setFontType(font);
-        oled.setCursor(0, 0);
+        oled.setCursor(x, y);
         oled.print(title);
         oled.display();
+    }
+
+    void display(String title, int font) {
+        display(title, font, 0, 0);
+    }
+
+    void displayNumber(String s) {
+        // To reduce OLED burn-in, shift the digits (if possible) on the odd minutes.
+        int x = 0;
+        if (Time.minute() % 2) {
+            const int MAX_DIGITS = 4;
+            if (s.length() < MAX_DIGITS) {
+                const int FONT_WIDTH = 12;
+                x += FONT_WIDTH * (MAX_DIGITS - s.length());
+            }
+        }
+        display(s, 3, x, 0);
     }
 
     void publishJson() {
@@ -336,7 +352,7 @@ class OLEDDisplayer {
                 invert = true;
             }
         }
-        oledWrapper.display(String(temp), 3);
+        oledWrapper.displayNumber(String(temp));
         delay(1000);
     }
 
