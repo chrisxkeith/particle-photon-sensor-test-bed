@@ -204,22 +204,7 @@ class SensorTestBed {
     // Names should also contain the string "sensor".
     // Also, a unique number is recommended, e.g., "Thermistor sensor 01".
     SensorData t1[ 2 ] = {
-         SensorData(A0, "Thermistor 01 sensor:", 0.036),
-         SensorData(A0, "", 1)
-    };
-    SensorData t2[ 2 ] = {
-         SensorData(A0, "Thermistor 02 sensor:", 0.036),
-         SensorData(A0, "", 1)
-    };
-    SensorData t5[ 2 ] = {
-         SensorData(A0, "Thermistor 05 sensor:", 0.036),
-         SensorData(A0, "", 1)
-    };
-    SensorData t6[ 2 ] = {
-         SensorData(A0, "Thermistor 06 sensor:", 0.036),
-         // A2 belongs to OLED.
-         // A3 belongs to SPI/I2C.
-         // A5 belongs to SPI/I2C.
+         SensorData(A0, "Thermistor sensor 1", 0.036),
          SensorData(A0, "", 1)
     };
     SensorData unknownID[ 2 ] = {
@@ -228,23 +213,11 @@ class SensorTestBed {
     };
 
     String thermistor_test  = "1c002c001147343438323536";
-    String thermistor2_test = "300040001347343438323536";
-    String photon_05        = "19002a001347363336383438";
-    String photon_06        = "290048001647363335343834";
 
     SensorData* getSensors() {
         String id = System.deviceID();
         if (id.equals(thermistor_test)) {
             return t1;
-        }
-        if (id.equals(thermistor2_test)) {
-            return t2;
-        }
-        if (id.equals(photon_05)) {
-            return t5;
-        }
-        if (id.equals(photon_06)) {
-            return t6;
         }
         return unknownID;
     }
@@ -341,7 +314,7 @@ class OLEDDisplayer {
     bool    invert = true;
   public:
     void display() {
-        int temp = sensorTestBed.getValue("Thermistor 01 sensor:");
+        int temp = sensorTestBed.getValue("Thermistor sensor 1");
         if (temp >= tempToBlinkInF) {
           oledWrapper.oled.invert(invert);
           invert = !invert;
