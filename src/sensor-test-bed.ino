@@ -40,7 +40,7 @@ class Utils {
     }
     static void publish(String event, String data) {
         Particle.publish(event, data, 1, PRIVATE);
-        delay(1000); // will be rate-limited if we send more than 1 per second.
+        // delay(1000); // will be rate-limited if we send more than 1 per second.
     }
 };
 
@@ -326,7 +326,7 @@ class OLEDDisplayer {
             }
         }
         oledWrapper.displayNumber(String(temp));
-        delay(1000);
+        delay(500);
     }
 
     int setDispTemp(String cmd) {
