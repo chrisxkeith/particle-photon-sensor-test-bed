@@ -207,17 +207,25 @@ class SensorTestBed {
          SensorData(A0, "Thermistor sensor 1", 0.036),
          SensorData(A0, "", 1)
     };
+    SensorData p6[ 2 ] = {
+         SensorData(A0, "Current sensor 6", 0.036),
+         SensorData(A0, "", 1)
+    };
     SensorData unknownID[ 2 ] = {
          SensorData(A0, "Unknown device id!", 1),
          SensorData(A0, "", 1)
     };
 
     String thermistor_test  = "1c002c001147343438323536";
+    String photon_06  = "290048001647363335343834";
 
     SensorData* getSensors() {
         String id = System.deviceID();
         if (id.equals(thermistor_test)) {
             return t1;
+        }
+        if (id.equals(photon_06)) {
+            return p6;
         }
         return unknownID;
     }
