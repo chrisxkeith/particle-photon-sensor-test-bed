@@ -156,11 +156,12 @@ class OLEDWrapper {
 OLEDWrapper oledWrapper;
 
 class SensorData {
+  private:
+    int     lastVal;
   protected:
     int     pin;
     String  name;
     double  factor; // apply to get human-readable values, e.g., degrees F
-    int     lastVal;
 
   public:
     SensorData(int pin, String name, double factor) {
@@ -196,72 +197,118 @@ class SensorData {
 
 class CurrentSensor : public SensorData {
   public:
-    CurrentSensor(int pin, String name, double factor);
+    CurrentSensor(int pin, String name, double factor) :
+        SensorData(pin, name, factor) {
+    }
+    void sample();
+    double getDoubleValue() { return previousAmps; }
+    int getValue() { return round(previousAmps); }
 
-  private: 
-    const unsigned long TIMEOUT_INDICATOR = ULONG_MAX;
+  private:
+    // Observed (approximate) amperage when clothes dryer drum is turning.
+    // Also hair dryer on 'Lo'.
+    // double POWER_ON_AMPS = 7.0; TODO : will this be needed?
+
     double previousAmps = -1.0;
-    unsigned long previousLogTime = ULONG_MAX;
-                    // Observed (approximate) amperage when dryer drum is turning.
-                    // Also hair dryer on 'Lo'.
-    double AMPS = 7.0;
-                // When the dryer goes into wrinkle guard mode, it is off for 00:04:45,
-                // then powers on for 00:00:15.
-    unsigned long wrinkleGuardOff = minSecToMillis(4, 45);
-    unsigned long wrinkleGuardOn = minSecToMillis(0, 15);
-                    // Give onesself 30 seconds to get to the dryer.
-    unsigned int warningInterval = minSecToMillis(0, 30);
- 
-    unsigned long waitForPowerChange(bool insideRange, const unsigned long timeoutDelta);
-    unsigned long waitForPowerOn(const long timeoutDelta);
-    unsigned long waitForPowerOff(const long timeoutDelta);
-    void doRun();
-    double doSample();
-    void logAmps(double amps);
-    void log(String msg);
-    unsigned long minSecToMillis(unsigned long minutes, unsigned long seconds);
-                // If any interval takes longer than an hour, something has gone wrong.
+    long previousSampleTime = 0L;
+
+    enum DryerState {
+        noLoadBeingDried,
+        inDryingCycle,
+        inWrinkleGuardOffCycle,
+        inWrinkleGuardOnCycle
+    };
+    // Assume that sensor unit has been initialized while dryer is off.
+    DryerState dryerState = noLoadBeingDried;
+    long lastStateChangeTime = 0L;
+
+    int numWrinkleGuardCycles = 0;
+    int cycleWhenMessageWasSent = 0;
+
+    bool outsideRangeD(double v1, double v2, double epsilon) {
+        return abs(v1 - v2) > epsilon;
+    }
+    enum PowerStateChange {
+        power_off,
+        power_on,
+        no_change
+    };
+    PowerStateChange powerChanged(double amps);
+    void checkState(PowerStateChange powerStateChange);
+    void sendMessageIfNecessary();
+
+    unsigned long minSecToMillis(unsigned long minutes, unsigned long seconds) {
+    return (minutes * 60 * 1000) + (seconds * 1000);
+    }
+    const unsigned long WRINKLE_GUARD_OFF_CYCLE = minSecToMillis(4, 45);
+    const unsigned long WRINKLE_GUARD_ON_CYCLE = minSecToMillis(0, 15);
     const unsigned long ONE_HOUR = minSecToMillis(60, 0);
-    bool insideRangeL(long v1, long v2, long epsilon);
-    bool insideRangeD(double v1, double v2, double epsilon);
-    bool outsideRangeD(double v1, double v2, double epsilon);
 };
 
-void CurrentSensor::log(String msg) {
-  Utils::publish("Current Sensor", msg);
+CurrentSensor::PowerStateChange CurrentSensor::powerChanged(double amps) {
+    if (outsideRangeD(amps, previousAmps, 0.5)) { // Need a change of at last .5 amps to be a 'real' (e.g., not noise) change.
+        if (amps > previousAmps) {
+            return power_on;
+        }
+        return power_off;
+    }
+    return no_change;
 }
- 
-unsigned long CurrentSensor::minSecToMillis(unsigned long minutes, unsigned long seconds) {
-  return (minutes * 60 * 1000) + (seconds * 1000);
+
+void CurrentSensor::sendMessageIfNecessary() {
+    if (dryerState == inWrinkleGuardOffCycle &&
+                cycleWhenMessageWasSent > numWrinkleGuardCycles &&
+                millis() - lastStateChangeTime > WRINKLE_GUARD_OFF_CYCLE) {
+        String msg("Dryer will start 15 second tumble cycle in ");
+        msg.concat(0);
+        msg.concat(" seconds.");
+        Utils::publish(name, msg);
+        cycleWhenMessageWasSent = numWrinkleGuardCycles;
+    }
 }
- 
-// Check if two longs are within 'epsilon' of each other.
-bool CurrentSensor::insideRangeL(long v1, long v2, long epsilon) {
-  return abs(v1 - v2) < epsilon;
+
+void CurrentSensor::checkState(PowerStateChange powerStateChange) {
+    // Assume that the only power-on interval that takes 'wrinkleGuardOn' milliseconds
+    // is indeed the wrinkle guard interval (and not some other stage in the cycle).
+    switch(dryerState) {
+        case noLoadBeingDried:
+            dryerState = inDryingCycle;
+            break;
+        case inDryingCycle:
+            dryerState = inWrinkleGuardOffCycle;
+            break;
+        case inWrinkleGuardOffCycle:
+            // If power off for longer than wrinkle guard cycle, assume it's all done.
+            // TODO : Do I need to add a fudge factor here?
+            if (millis() - this->lastStateChangeTime > (WRINKLE_GUARD_OFF_CYCLE + WRINKLE_GUARD_ON_CYCLE)) {
+                dryerState = noLoadBeingDried;
+                numWrinkleGuardCycles = 0;
+                cycleWhenMessageWasSent = 0;
+            } else {
+                dryerState = inWrinkleGuardOnCycle;
+            }
+            break;
+        case inWrinkleGuardOnCycle:
+            dryerState = inWrinkleGuardOffCycle;
+            break;
+        default:
+            String err("Unknown dryerState: ");
+            err.concat(dryerState);
+            Utils::publish(name, err);
+            break;
+    }
+    lastStateChangeTime = millis();
 }
- 
-// Check if two doubles are within 'epsilon' of each other.
-bool CurrentSensor::insideRangeD(double v1, double v2, double epsilon) {
-  return abs(v1 - v2) <= epsilon;
-}
- 
-// Check if two doubles are NOT within 'epsilon' of each other.
-bool CurrentSensor::outsideRangeD(double v1, double v2, double epsilon) {
-  return !insideRangeD(v1, 2, epsilon);
-}
- 
-void CurrentSensor::logAmps(double amps) {
-  if (insideRangeD(amps, previousAmps, 0.5)) {
-    return;
-  }
-  log(String(amps));
-  previousAmps = amps;
-}
- 
-double CurrentSensor::doSample() {
+
+void CurrentSensor::sample() {
   int minVal = 1023;
   int maxVal = 0;
-  const int iters = 500; // get this number of readings 1 ms apart.
+
+  // Assume we can read a voltage every 10 ms or so.
+  // To avoid blocking the whole Photon for too long,
+  // only read for 1/30 of a second,
+  // roughly an interval of two 60 cycles/second.
+  const int iters = 1000 / 30;
   for (int i = 0; i < iters; i++) {
     int sensorValue = analogRead(pin);
     minVal  = min(sensorValue, minVal);
@@ -284,88 +331,15 @@ double CurrentSensor::doSample() {
 // that 30A is passing through it on the input side.  So, measure the amount
 // of AC voltage by computing the Root Mean Squared, and then multiply the
 // number of volts by 30 to arrive at the number of amps.
- 
+
   double amps = rms * 30;
-  double watts = peakVoltage * amps;
-  logAmps(amps);
-  return amps;
-}
-unsigned long CurrentSensor::waitForPowerChange(bool insideRange, const unsigned long timeoutDelta) {
-  unsigned long start = millis();
-  while (true) {
-    if (insideRange) {
-      sample();
-      if (!insideRangeD(getValue(), AMPS, AMPS * 0.9)) {
-        break;
-      }
-    } else {
-      if (!outsideRangeD(getValue(), AMPS, AMPS * 0.9)) {
-        break;
-      }
-    }
-    delay(minSecToMillis(0, 1));
-    if (millis() - start > timeoutDelta) {
-      return TIMEOUT_INDICATOR;
-    }
+  PowerStateChange change = powerChanged(amps); 
+  if (change != no_change) {
+      checkState(change);
+      previousAmps = amps;
+      previousSampleTime = millis();
   }
-  return millis() - start;
-}
- 
-unsigned long CurrentSensor::waitForPowerOn(const long timeoutDelta) {
-  return waitForPowerChange(false, timeoutDelta);
-}
- 
-unsigned long CurrentSensor::waitForPowerOff(const long timeoutDelta) {
-  return waitForPowerChange(true, timeoutDelta);
-}
- 
-void CurrentSensor::doRun() {
-                  // Assume that sensor unit has been initialized while dryer is off.
-  waitForPowerOn(ULONG_MAX);
-                // Assume that the only power-on interval that takes 'wrinkleGuardOn' milliseconds
-                // is indeed the wrinkle guard interval (and not some other stage in the cycle).
-                // TODO : If this doesn't work, try checking for both on and off wrinkle guard intervals.
-  unsigned long onInterval;
-  while (true) {
-    onInterval = waitForPowerOff(ONE_HOUR);
-    if (onInterval == TIMEOUT_INDICATOR) {
-      log("doRun: TIMEOUT 1.");
-      return;
-    }
-    // Allow 3 seconds for delta check.
-    if (insideRangeL(onInterval, wrinkleGuardOn, 3000)) {
-      break;
-    }
-    if (waitForPowerOn(ONE_HOUR) == TIMEOUT_INDICATOR) {
-      log("doRun: TIMEOUT 2.");
-      return;
-    }
-  }
-  if (waitForPowerOff(ONE_HOUR) == TIMEOUT_INDICATOR) {
-    log("doRun: TIMEOUT 3.");
-    return;
-  }
-                // Now it's at the beginning of the second wrinkle guard off cycle.
-  while (insideRangeL(onInterval, wrinkleGuardOn, 3000)) {
-    delay(wrinkleGuardOff - warningInterval);
-    String m("Dryer will start 15 second tumble cycle in ");
-    m.concat(String(warningInterval / 1000));
-    log(m);
-    unsigned long offInterval = waitForPowerOn(ONE_HOUR); 
-    if (offInterval == TIMEOUT_INDICATOR) {
-      log("doRun: TIMEOUT 4.");
-      return;
-    }
-    onInterval = waitForPowerOff(ONE_HOUR);
-    if (onInterval == TIMEOUT_INDICATOR) {
-      log("doRun: TIMEOUT 5.");
-      return;
-    }
-  }
-}
- 
-CurrentSensor::CurrentSensor(int pin, String name, double factor) :
-  SensorData(pin, name, factor) {
+  sendMessageIfNecessary();
 }
 
 class SensorTestBed {
