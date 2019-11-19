@@ -243,7 +243,7 @@ class CurrentSensor : public SensorData {
     void sendMessageIfNecessary();
 
     unsigned long minSecToMillis(unsigned long minutes, unsigned long seconds) {
-    return (minutes * 60 * 1000) + (seconds * 1000);
+        return (minutes * 60 * 1000) + (seconds * 1000);
     }
     unsigned long wrinkleGuardOffCycle = minSecToMillis(4, 45);
     unsigned long wrinkleGuardOnCycle = minSecToMillis(0, 15);
@@ -350,7 +350,7 @@ void CurrentSensor::sample() {
   double amps = rms * 30;
   PowerStateChange change = powerChanged(amps); 
   if (change != no_change) {
-      checkState(change);
+//      checkState(change); // Get sampling and publishing the sampled value working first.
       previousAmps = amps;
       previousSampleTime = millis();
   }
