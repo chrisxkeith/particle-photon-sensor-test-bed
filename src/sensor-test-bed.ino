@@ -42,7 +42,10 @@ class Utils {
         Particle.publish(event, data, 1, PRIVATE);
         // delay(1000); // will be rate-limited if we send more than 1 per second.
     }
+    static bool testMode;
 };
+
+bool Utils::testMode = false;
 
 class TimeSupport {
   private:
@@ -193,6 +196,7 @@ class SensorData {
     String buildValueString() {
         return String(getValue());
     }
+    void setTestMode() {}
 };
 
 class CurrentSensor : public SensorData {
@@ -203,6 +207,7 @@ class CurrentSensor : public SensorData {
     void sample();
     double getDoubleValue() { return previousAmps; }
     int getValue() { return round(previousAmps); }
+    void setTestMode();
 
   private:
     // Observed (approximate) amperage when clothes dryer drum is turning.
@@ -240,10 +245,20 @@ class CurrentSensor : public SensorData {
     unsigned long minSecToMillis(unsigned long minutes, unsigned long seconds) {
     return (minutes * 60 * 1000) + (seconds * 1000);
     }
-    const unsigned long WRINKLE_GUARD_OFF_CYCLE = minSecToMillis(4, 45);
-    const unsigned long WRINKLE_GUARD_ON_CYCLE = minSecToMillis(0, 15);
+    unsigned long wrinkleGuardOffCycle = minSecToMillis(4, 45);
+    unsigned long wrinkleGuardOnCycle = minSecToMillis(0, 15);
     const unsigned long ONE_HOUR = minSecToMillis(60, 0);
 };
+
+void CurrentSensor::setTestMode() {
+    if (Utils::testMode) {
+        wrinkleGuardOffCycle = minSecToMillis(0, 20);
+        wrinkleGuardOnCycle = minSecToMillis(0, 10);
+    } else {
+        wrinkleGuardOffCycle = minSecToMillis(4, 45);
+        wrinkleGuardOnCycle = minSecToMillis(0, 15);
+    }
+}
 
 CurrentSensor::PowerStateChange CurrentSensor::powerChanged(double amps) {
     if (outsideRangeD(amps, previousAmps, 0.5)) { // Need a change of at last .5 amps to be a 'real' (e.g., not noise) change.
@@ -258,7 +273,7 @@ CurrentSensor::PowerStateChange CurrentSensor::powerChanged(double amps) {
 void CurrentSensor::sendMessageIfNecessary() {
     if (dryerState == inWrinkleGuardOffCycle &&
                 cycleWhenMessageWasSent > numWrinkleGuardCycles &&
-                millis() - lastStateChangeTime > WRINKLE_GUARD_OFF_CYCLE) {
+                millis() - lastStateChangeTime > wrinkleGuardOffCycle) {
         String msg("Dryer will start 15 second tumble cycle in ");
         msg.concat(0);
         msg.concat(" seconds.");
@@ -280,7 +295,7 @@ void CurrentSensor::checkState(PowerStateChange powerStateChange) {
         case inWrinkleGuardOffCycle:
             // If power off for longer than wrinkle guard cycle, assume it's all done.
             // TODO : Do I need to add a fudge factor here?
-            if (millis() - this->lastStateChangeTime > (WRINKLE_GUARD_OFF_CYCLE + WRINKLE_GUARD_ON_CYCLE)) {
+            if (millis() - this->lastStateChangeTime > (wrinkleGuardOffCycle + wrinkleGuardOnCycle)) {
                 dryerState = noLoadBeingDried;
                 numWrinkleGuardCycles = 0;
                 cycleWhenMessageWasSent = 0;
@@ -456,6 +471,13 @@ class SensorTestBed {
         }
         return -1;
     }
+
+    void setTestMode() {
+	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
+            sensor->setTestMode();
+        }
+    }
+
 };
 
 SensorTestBed sensorTestBed = SensorTestBed();
@@ -551,12 +573,18 @@ int rawPublish(String command) {
     return 1;
 }
 
+int setTestMode(String command) {
+    Utils::testMode = !Utils::testMode;
+    sensorTestBed.setTestMode();
+}
+
 void setup() {
     Particle.function("GetSettings", pubSettings);
     Particle.function("SetPublish",  setPublish);
     Particle.function("PublishVals", publishVals);
     Particle.function("RawPublish",  rawPublish);
     Particle.function("setDispTemp", setDispTemp);
+    Particle.function("setTestMode", setTestMode);
     sensorTestBed.sampleSensorData();
     sensorTestBed.publish();
     oledDisplayer.display();
