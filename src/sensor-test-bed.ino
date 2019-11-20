@@ -439,6 +439,10 @@ class SensorTestBed {
         return 999;
     }
 
+    int getValue(int i) {
+	    return getSensors()[i].getValue();
+    }
+
     void sampleSensorData() {
         sample();
         if (nextPublish <= Time.now()) {
@@ -490,7 +494,7 @@ class OLEDDisplayer {
     bool    invert = true;
   public:
     void display() {
-        int temp = sensorTestBed.getValue("Simulated sensor 1");
+        int temp = sensorTestBed.getValue(0);
         if (temp >= tempToBlinkInF) {
           oledWrapper.oled->invert(invert);
           invert = !invert;
