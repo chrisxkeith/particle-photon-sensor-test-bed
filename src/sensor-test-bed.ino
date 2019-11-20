@@ -534,6 +534,7 @@ int publishVals(String command) {
 String getOverallSettings() {
     String json("{");
     JSonizer::addFirstSetting(json, "githubHash", githubHash);
+    JSonizer::addFirstSetting(json, "githubRepo", "https://github.com/chrisxkeith/particle-photon-sensor-test-bed");
     json.concat("}");
     return json;
 }
