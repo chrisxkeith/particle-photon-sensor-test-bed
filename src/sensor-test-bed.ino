@@ -1,4 +1,3 @@
-// Depricated : Use https://github.com/chrisxkeith/ir-qwiic-example instead.
 // Please credit chris.keith@gmail.com
 const String githubHash = "to be replaced manually in build.particle.io after 'git push'";
 
@@ -104,28 +103,27 @@ class TimeSupport {
 };
 TimeSupport    timeSupport(-8, "PST");
 
-#include <SparkFunMicroOLED.h>
-// https://learn.sparkfun.com/tutorials/photon-oled-shield-hookup-guide
+#include <SFE_MicroOLED.h>
 #include <math.h>
 
 class OLEDWrapper {
   public:
-    MicroOLED oled;
+    MicroOLED* oled = new MicroOLED(9,1);
 
     OLEDWrapper() {
-        oled.begin();    // Initialize the OLED
-        oled.clear(ALL); // Clear the display's internal memory
-        oled.display();  // Display what's in the buffer (splashscreen)
+        oled->begin();    // Initialize the OLED
+        oled->clear(ALL); // Clear the display's internal memory
+        oled->display();  // Display what's in the buffer (splashscreen)
         delay(1000);     // Delay 1000 ms
-        oled.clear(PAGE); // Clear the buffer.
+        oled->clear(PAGE); // Clear the buffer.
     }
 
     void display(String title, int font, uint8_t x, uint8_t y) {
-        oled.clear(PAGE);
-        oled.setFontType(font);
-        oled.setCursor(x, y);
-        oled.print(title);
-        oled.display();
+        oled->clear(PAGE);
+        oled->setFontType(font);
+        oled->setCursor(x, y);
+        oled->print(title);
+        oled->display();
     }
 
     void display(String title, int font) {
@@ -147,14 +145,14 @@ class OLEDWrapper {
 
     void publishJson() {
         String json("{");
-        JSonizer::addFirstSetting(json, "getLCDWidth()", String(oled.getLCDWidth()));
-        JSonizer::addSetting(json, "getLCDHeight()", String(oled.getLCDHeight()));
+        JSonizer::addFirstSetting(json, "getLCDWidth()", String(oled->getLCDWidth()));
+        JSonizer::addSetting(json, "getLCDHeight()", String(oled->getLCDHeight()));
         json.concat("}");
         Utils::publish("OLED", json);
     }
 
     void clear() {
-      oled.clear(ALL);
+      oled->clear(ALL);
     }
 };
 OLEDWrapper oledWrapper;
@@ -495,12 +493,12 @@ class OLEDDisplayer {
     void display() {
         int temp = sensorTestBed.getValue("Thermistor sensor 1");
         if (temp >= tempToBlinkInF) {
-          oledWrapper.oled.invert(invert);
+          oledWrapper.oled->invert(invert);
           invert = !invert;
         } else {
             if (!invert) {
                 // If going out of "blink" mode, make sure background is black.
-                oledWrapper.oled.invert(false);
+                oledWrapper.oled->invert(false);
                 invert = true;
             }
         }
@@ -577,6 +575,7 @@ int rawPublish(String command) {
 int setTestMode(String command) {
     Utils::testMode = !Utils::testMode;
     sensorTestBed.setTestMode();
+    return 1;
 }
 
 void setup() {

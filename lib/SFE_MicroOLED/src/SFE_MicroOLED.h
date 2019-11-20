@@ -1,36 +1,51 @@
-/*
-    MicroOLED Arduino Library
+/****************************************************************************** 
+SFE_MicroOLED.h
+Header file for the MicroOLED Arduino Library
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+Jim Lindblom @ SparkFun Electronics
+October 26, 2014
+https://github.com/sparkfun/Micro_OLED_Breakout/tree/master/Firmware/Arduino/libraries/SFE_MicroOLED
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+Modified by:
+Emil Varughese @ Edwin Robotics Pvt. Ltd.
+July 27, 2015
+https://github.com/emil01/SparkFun_Micro_OLED_Arduino_Library/
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef SPARKFUN_MICRO_OLED_H
-#define SPARKFUN_MICRO_OLED_H
+
+This file defines the hardware interface(s) for the Micro OLED Breakout. Those
+interfaces include SPI, I2C and a parallel bus.
+
+Development environment specifics:
+Arduino 1.0.5
+Arduino Pro 3.3V
+Micro OLED Breakout v1.0
+
+This code was heavily based around the MicroView library, written by GeekAmmo
+(https://github.com/geekammo/MicroView-Arduino-Library), and released under 
+the terms of the GNU General Public License as published by the Free Software 
+Foundation, either version 3 of the License, or (at your option) any later 
+version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+******************************************************************************/
+
+#ifndef SFE_MICROOLED_H
+#define SFE_MICROOLED_H
 
 #include <stdio.h>
-#include <stdint.h>
-#include "application.h"
+#include <Arduino.h>
 
-#define swap(a, b) { uint8_t t = a; a = b; b = t; }
-#define _BV(x)	(1 << x)
-#define pgm_read_byte(x) (*(x))
-#define pgm_read_word(x) (*(x))
-#define pgm_read_float(x) (*(x))
-
-#define DC_DEFAULT		D6
-#define RST_DEFAULT		D7
-#define CS_DEFAULT		A2
-#define MODE_DEFAULT	MODE_SPI
+#if defined(__AVR__) || defined(__arm__) || defined(__ARDUINO_ARC__)
+	#include <avr/pgmspace.h>
+#else
+	#include <pgmspace.h>
+#endif
 
 #define I2C_ADDRESS_SA0_0 0b0111100
 #define I2C_ADDRESS_SA0_1 0b0111101
@@ -111,14 +126,19 @@ typedef enum CMD {
 
 typedef enum COMM_MODE{
 	MODE_SPI,
-	MODE_I2C
+	MODE_I2C,
+	MODE_PARALLEL
 } micro_oled_mode;
 
-class MicroOLED : public Print
-{
+class MicroOLED : public Print{
 public:
-	MicroOLED(micro_oled_mode mode = MODE_DEFAULT, uint8_t rst = RST_DEFAULT, uint8_t dc = DC_DEFAULT, uint8_t cs = CS_DEFAULT);
-
+	// Constructor(s)
+	MicroOLED(uint8_t rst, uint8_t dc, uint8_t cs);
+	MicroOLED(uint8_t rst, uint8_t dc);
+	MicroOLED(uint8_t rst, uint8_t dc, uint8_t cs, uint8_t wr, uint8_t rd, 
+			  uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3, 
+			  uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7);
+	
 	void begin(void);
 	virtual size_t write(uint8_t);
 
@@ -127,11 +147,11 @@ public:
 	void data(uint8_t c);
 	void setColumnAddress(uint8_t add);
 	void setPageAddress(uint8_t add);
-
+	
 	// LCD Draw functions
 	void clear(uint8_t mode);
 	void clear(uint8_t mode, uint8_t c);
-	void invert(bool inv);
+	void invert(boolean inv);
 	void contrast(uint8_t contrast);
 	void display(void);
 	void setCursor(uint8_t x, uint8_t y);
@@ -153,12 +173,12 @@ public:
 	void circleFill(uint8_t x0, uint8_t y0, uint8_t radius, uint8_t color, uint8_t mode);
 	void drawChar(uint8_t x, uint8_t y, uint8_t c);
 	void drawChar(uint8_t x, uint8_t y, uint8_t c, uint8_t color, uint8_t mode);
-	void drawBitmap(const uint8_t * bitArray);
-	
+	void drawBitmap(uint8_t * bitArray);
 	uint8_t getLCDWidth(void);
 	uint8_t getLCDHeight(void);
 	void setColor(uint8_t color);
 	void setDrawMode(uint8_t mode);
+	uint8_t *getScreenBuffer(void);
 
 	// Font functions
 	uint8_t getFontWidth(void);
@@ -169,31 +189,34 @@ public:
 	uint8_t getFontStartChar(void);
 	uint8_t getFontTotalChar(void);
 
-	// LCD Rotate Scroll functions
+	// LCD Rotate Scroll functions	
 	void scrollRight(uint8_t start, uint8_t stop);
 	void scrollLeft(uint8_t start, uint8_t stop);
 	void scrollVertRight(uint8_t start, uint8_t stop);
 	void scrollVertLeft(uint8_t start, uint8_t stop);
 	void scrollStop(void);
-	void flipVertical(bool flip);
-	void flipHorizontal(bool flip);
-
+	void flipVertical(boolean flip);
+	void flipHorizontal(boolean flip);
+	
 private:
 	uint8_t csPin, dcPin, rstPin;
 	uint8_t wrPin, rdPin, dPins[8];
 	volatile uint8_t *wrport, *wrreg, *rdport, *rdreg;
 	uint8_t wrpinmask, rdpinmask;
 	micro_oled_mode interface;
+	byte i2c_address;
+	volatile uint8_t *ssport, *dcport, *ssreg, *dcreg;	// use volatile because these are fixed location port address
+	uint8_t mosipinmask, sckpinmask, sspinmask, dcpinmask;
 	uint8_t foreColor,drawMode,fontWidth, fontHeight, fontType, fontStartChar, fontTotalChar, cursorX, cursorY;
 	uint16_t fontMapWidth;
 	static const unsigned char *fontsPointer[];
-
-	void setup(micro_oled_mode mode, uint8_t rst, uint8_t dc, uint8_t cs);
-
+	
 	// Communication
-	void spiTransfer(uint8_t data);
+	void spiTransfer(byte data);
 	void spiSetup();
 	void i2cSetup();
-	void i2cWrite(uint8_t address, uint8_t control, uint8_t data);
+	void i2cWrite(byte address, byte control, byte data);
+	void parallelSetup();
+	void parallelWrite(byte data, byte dc);
 };
 #endif
