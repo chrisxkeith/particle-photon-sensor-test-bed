@@ -40,7 +40,11 @@ class Utils {
     }
     static void publish(String event, String data) {
         Particle.publish(event, data, 1, PRIVATE);
-        // delay(1000); // will be rate-limited if we send more than 1 per second.
+    }
+    static void publishAndSleep(String a, String b) {
+        publish(a, b);
+        // Might be rate-limited if we send more than 1 per second.
+        delay(1000);
     }
     static bool testMode;
 };
@@ -111,6 +115,8 @@ class OLEDWrapper {
     MicroOLED* oled = new MicroOLED(9,1);
 
     OLEDWrapper() {
+        delay(1000);
+        Wire.begin();
         oled->begin();    // Initialize the OLED
         oled->clear(ALL); // Clear the display's internal memory
         oled->display();  // Display what's in the buffer (splashscreen)
@@ -189,6 +195,10 @@ class SensorData {
     }
 
     int getValue() {
+        if (name.startsWith("Simulated")) {
+            // For testing. Returns last 5 digits of seconds since restart.
+            return (millis() / 1000) % 100000;
+        }
         return applyFactor(lastVal);
     }
 
@@ -373,6 +383,10 @@ class SensorTestBed {
          SensorData(A0, "Current sensor 6", 0.036),
          SensorData(A0, "", 1)
     };
+    SensorData test1[ 2 ] = {
+         SensorData(A0, "Simulated sensor 1", 1),
+         SensorData(A0, "", 1)
+    };
     SensorData unknownID[ 2 ] = {
          SensorData(A0, "Unknown device id!", 1),
          SensorData(A0, "", 1)
@@ -387,7 +401,7 @@ class SensorTestBed {
             return t1;
         }
         if (id.equals(photon_06)) {
-            return p6;
+            return test1; // p6;
         }
         return unknownID;
     }
@@ -410,25 +424,10 @@ class SensorTestBed {
 	    setNextPublish();
 	}
 
-    // Publish when changed, but not more often than minimum requested rate
-    // (and never faster than 1/second, which is a Particle cloud restriction.)
     void publish() {
-        String json("{");
-        bool first = true;
 	    for (SensorData* sensor = getSensors(); !sensor->getName().equals(""); sensor++) {
             Utils::publish(sensor->getName(), sensor->buildValueString());
-            if (first) {
-                first = false;
-            } else {
-                json.concat(",");
-            }
-            json.concat("\"");
-            json.concat(sensor->getName());
-            json.concat("\":\"");
-            json.concat(sensor->buildValueString());
-            json.concat("\"");
         }
-        json.concat("}");
     }
 
     int getValue(String sensorName) {
@@ -491,7 +490,7 @@ class OLEDDisplayer {
     bool    invert = true;
   public:
     void display() {
-        int temp = sensorTestBed.getValue("Thermistor sensor 1");
+        int temp = sensorTestBed.getValue("Simulated sensor 1");
         if (temp >= tempToBlinkInF) {
           oledWrapper.oled->invert(invert);
           invert = !invert;
@@ -580,6 +579,7 @@ int setTestMode(String command) {
 }
 
 void setup() {
+    Utils::publishAndSleep("Debug", "setup() : Started");
     Particle.function("GetSettings", pubSettings);
     Particle.function("SetPublish",  setPublish);
     Particle.function("PublishVals", publishVals);
@@ -589,7 +589,7 @@ void setup() {
     sensorTestBed.sampleSensorData();
     sensorTestBed.publish();
     oledDisplayer.display();
-    Particle.publish("Debug", "Finished setup...", 1, PRIVATE);
+    Utils::publishAndSleep("Debug", "setup() : Finished");
 }
 
 void loop() {
