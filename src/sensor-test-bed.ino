@@ -1,3 +1,4 @@
+// Depricated : Use https://github.com/chrisxkeith/ir-qwiic-example instead.
 // Please credit chris.keith@gmail.com
 const String githubHash = "to be replaced manually in build.particle.io after 'git push'";
 
