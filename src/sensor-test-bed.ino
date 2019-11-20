@@ -376,7 +376,7 @@ class SensorTestBed {
     // Names should contain the string "sensor".
     // A unique number is recommended (use Photon #), e.g., "Thermistor sensor 01".
     SensorData t1[ 2 ] = {
-         SensorData(A0, "Thermistor sensor 1", 0.036),
+         SensorData(A0, "Outdoor Thermistor sensor 10", 0.036),
          SensorData(A0, "", 1)
     };
     SensorData p6[ 2 ] = {
@@ -392,16 +392,16 @@ class SensorTestBed {
          SensorData(A0, "", 1)
     };
 
-    String thermistor_test  = "1c002c001147343438323536";
     String photon_06  = "290048001647363335343834";
+    String photon_10  = "410027001247363335343834";
 
     SensorData* getSensors() {
         String id = System.deviceID();
-        if (id.equals(thermistor_test)) {
-            return t1;
-        }
         if (id.equals(photon_06)) {
             return test1; // p6;
+        }
+        if (id.equals(photon_10)) {
+            return t1;
         }
         return unknownID;
     }
