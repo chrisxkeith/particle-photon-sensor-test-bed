@@ -1,5 +1,7 @@
 # particle-photon-sensor-test-bed
 
+*See https://github.com/chrisxkeith/ir-qwiic-example instead.*
+
 To use on your Photon(s):
 - Find the id(s) of your Photon(s) : https://community.particle.io/t/finding-your-device-id/26531
 - Replace the id's in the '...id.equals(...' line(s) with your Photon id(s).
