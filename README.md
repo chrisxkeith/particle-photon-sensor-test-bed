@@ -1,6 +1,6 @@
 # particle-photon-sensor-test-bed
 
-*See https://github.com/chrisxkeith/ir-qwiic-example instead.*
+*See https://github.com/chrisxkeith/ir-qwiic-example (for infrared sensor) instead.*
 
 To use on your Photon(s):
 - Find the id(s) of your Photon(s) : https://community.particle.io/t/finding-your-device-id/26531
